@@ -31,7 +31,10 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    selectedNavRoute: String = "home",
+    onRouteSelected: (String) -> Unit = {}
+) {
     val coroutineScope = rememberCoroutineScope()
     val uriHandler = LocalUriHandler.current
 
@@ -40,7 +43,6 @@ fun HomeScreen() {
     var hasRoot by remember { mutableStateOf(true) }
     var isApplying by remember { mutableStateOf(false) }
 
-    var selectedNavRoute by remember { mutableStateOf("home") }
     var showProfileDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -323,7 +325,7 @@ fun HomeScreen() {
         // AZenith Floating Navbar Positioned at Bottom Center (Lebih Tinggi)
         AllukaFloatingNavBar(
             selectedRoute = selectedNavRoute,
-            onRouteSelected = { selectedNavRoute = it },
+            onRouteSelected = onRouteSelected,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 16.dp)
