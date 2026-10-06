@@ -33,6 +33,8 @@ import android.net.Uri
 import android.provider.Settings
 import android.content.pm.PackageManager
 import android.content.pm.ApplicationInfo
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import id.alluka.manager.R
 
 class AllukaAppItem(
@@ -364,6 +366,7 @@ fun ApplistScreen(
                             }
                         }
                     }
+                }
                 }
 
                 // Floating Android Material 3 Pull-To-Refresh Indicator (AZenith PullToRefreshDefaults.LoadingIndicator)

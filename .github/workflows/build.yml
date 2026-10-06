@@ -31,7 +31,8 @@ jobs:
           if [ -d "manager" ] && [ -f "manager/gradlew" ]; then
             cd manager
             chmod +x gradlew
-            ./gradlew assembleDebug || ./gradlew assembleRelease || echo "Manager build skipped"
+            echo "==> Building Alluka Manager APK..."
+            ./gradlew assembleDebug
             cd ..
           fi
 
@@ -75,13 +76,19 @@ jobs:
             fi
           done
 
-          for apk_file in dist/*.apk manager/app/build/outputs/apk/*/*.apk; do
-            if [ -f "$apk_file" ]; then
-              echo "Uploading $apk_file to Telegram..."
-              curl -s -F chat_id="${TELEGRAM_CHAT_ID}" \
-                   -F document=@"$apk_file" \
-                   -F caption="📱 <b>Alluka Manager APK</b>%0AFile: $(basename "$apk_file")" \
-                   -F parse_mode="HTML" \
-                   "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument"
-            fi
-          done
+          if [ -f "dist/Alluka.apk" ]; then
+            echo "Uploading dist/Alluka.apk to Telegram..."
+            curl -s -F chat_id="${TELEGRAM_CHAT_ID}" \
+                 -F document=@"dist/Alluka.apk" \
+                 -F caption="📱 <b>Alluka Manager Companion APK</b>%0AFile: Alluka.apk" \
+                 -F parse_mode="HTML" \
+                 "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument"
+          elif ls manager/app/build/outputs/apk/*/*.apk 1> /dev/null 2>&1; then
+            FALLBACK_APK=$(ls manager/app/build/outputs/apk/*/*.apk | head -n 1)
+            echo "Uploading fallback APK $FALLBACK_APK to Telegram..."
+            curl -s -F chat_id="${TELEGRAM_CHAT_ID}" \
+                 -F document=@"$FALLBACK_APK" \
+                 -F caption="📱 <b>Alluka Manager Companion APK</b>%0AFile: $(basename "$FALLBACK_APK")" \
+                 -F parse_mode="HTML" \
+                 "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument"
+          fi

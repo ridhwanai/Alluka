@@ -1,12 +1,11 @@
 plugins {
     alias(libs.plugins.agp.app)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
 }
 
 android {
     namespace = "id.alluka.manager"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "id.alluka.manager"
@@ -24,10 +23,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = "17"
     }
 
     buildTypes {
