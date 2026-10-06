@@ -49,20 +49,20 @@ fun AllukaFloatingNavBar(
     Surface(
         modifier = modifier
             .wrapContentWidth()
-            .height(64.dp)
+            .height(50.dp)
             .clip(CircleShape),
         shape = CircleShape,
         color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f),
-        shadowElevation = 12.dp,
+        shadowElevation = 8.dp,
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)
         )
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             items.forEach { item ->
                 val isSelected = selectedRoute == item.route
@@ -112,24 +112,24 @@ fun AllukaFloatingNavBar(
                 ) {
                     Row(
                         modifier = Modifier.padding(
-                            horizontal = if (isSelected) 18.dp else 13.dp,
-                            vertical = 10.dp
+                            horizontal = if (isSelected) 14.dp else 10.dp,
+                            vertical = 6.dp
                         ),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Icon(
                             imageVector = item.icon,
                             contentDescription = item.label,
                             tint = contentColor,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                         if (isSelected) {
                             Text(
                                 text = item.label,
                                 color = contentColor,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
+                                fontSize = 12.sp
                             )
                         }
                     }
