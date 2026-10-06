@@ -1,15 +1,22 @@
 package id.alluka.manager.ui.mainscreens
 
+import android.content.Context
+import android.content.Intent
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.compose.animation.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Launch
@@ -20,56 +27,33 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
-import android.content.pm.PackageManager
-import android.content.pm.ApplicationInfo
-import kotlinx.coroutines.launch
+import id.alluka.manager.data.AllukaEngine
+import id.alluka.manager.ui.component.AppIconImage
+import id.alluka.manager.ui.component.SkeletonContent
+import id.alluka.manager.ui.component.SkeletonListRow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import id.alluka.manager.R
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.text.Collator
+import java.util.Locale
 
-class AllukaAppItem(
-    val id: String,
-    val name: String,
+data class AllukaRealAppItem(
     val packageName: String,
-    val icon: ImageVector,
-    val iconColor: Color,
+    val name: String,
     val isGame: Boolean,
     val isSystem: Boolean,
-    isEnabled: Boolean,
-    val isRecommended: Boolean,
-    val version: String = "v1.0.0",
-    perfLiteMode: String = "default",
-    dndOnGaming: String = "default",
-    renderEngine: String = "default"
-) {
-    var isEnabled by mutableStateOf(isEnabled)
-    var perfLiteMode by mutableStateOf(perfLiteMode)
-    var dndOnGaming by mutableStateOf(dndOnGaming)
-    var renderEngine by mutableStateOf(renderEngine)
-}
-
-data class OptionSheetItem(
-    val value: String,
-    val label: String,
-    val description: String
-)
-
-data class ActiveSheetConfig(
-    val title: String,
-    val subtitle: String,
-    val options: List<OptionSheetItem>,
-    val currentValue: String,
-    val onSelect: (String) -> Unit
+    val appInfo: ApplicationInfo?,
+    val isEnabled: Boolean,
+    val versionName: String,
+    var renderEngine: String = "default"
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,186 +61,180 @@ data class ActiveSheetConfig(
 fun ApplistScreen(
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    var appsList by remember { mutableStateOf<List<AllukaRealAppItem>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var isRefreshing by remember { mutableStateOf(false) }
+
     var searchQuery by remember { mutableStateOf("") }
     var isSearchActive by remember { mutableStateOf(false) }
     var showSystemApps by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
-    var isRefreshing by remember { mutableStateOf(false) }
-    var appToConfig by remember { mutableStateOf<AllukaAppItem?>(null) }
-    val coroutineScope = rememberCoroutineScope()
-    val context = LocalContext.current
 
-    // Exact AZenith Apps Data (11 default enabled games from azenithApplist.json + user apps + system apps)
-    val appsList = remember {
-        mutableStateListOf(
-            AllukaAppItem("bluearchive", "Blue Archive", "com.nexon.bluearchive", Icons.Rounded.SportsEsports, Color(0xFF0284C7), isGame = true, isSystem = false, isEnabled = true, isRecommended = true, version = "v1.60.260522"),
-            AllukaAppItem("ddlc", "Doki Doki Literature Club Plus!", "com.serenityforge.dokidokiliteratureclub", Icons.Rounded.AutoStories, Color(0xFFF43F5E), isGame = true, isSystem = false, isEnabled = true, isRecommended = true, version = "v1.0.4"),
-            AllukaAppItem("pjsekai", "HATSUNE MIKU: COLORFUL STAGE!", "com.sega.ColorfulStage.en", Icons.Rounded.MusicNote, Color(0xFF14B8A6), isGame = true, isSystem = false, isEnabled = true, isRecommended = true, version = "v2.8.1"),
-            AllukaAppItem("hsr", "Honkai: Star Rail", "com.HoYoverse.hkrpgoversea", Icons.Rounded.RocketLaunch, Color(0xFF8B5CF6), isGame = true, isSystem = false, isEnabled = true, isRecommended = true, version = "v2.6.0"),
-            AllukaAppItem("mlbb", "Mobile Legends: Bang Bang", "com.mobile.legends", Icons.Rounded.SportsEsports, Color(0xFFF59E0B), isGame = true, isSystem = false, isEnabled = true, isRecommended = true, version = "v1.8.78.9511"),
-            AllukaAppItem("onmyoji", "Onmyoji: The World", "com.netease.yysls", Icons.Rounded.LocalFireDepartment, Color(0xFFE11D48), isGame = true, isSystem = false, isEnabled = true, isRecommended = true, version = "v1.0.22"),
-            AllukaAppItem("reverse1999", "Reverse: 1999", "com.bluepoch.m.en.reverse1999", Icons.Rounded.HourglassBottom, Color(0xFFD97706), isGame = true, isSystem = false, isEnabled = true, isRecommended = true, version = "v1.9.0"),
-            AllukaAppItem("stellasora", "Stella Sora", "com.YoStarEN.StellaSora", Icons.Rounded.Star, Color(0xFF818CF8), isGame = true, isSystem = false, isEnabled = true, isRecommended = true, version = "v1.1.0"),
-            AllukaAppItem("imouto", "Teaching Feeling", "com.FFhouse.ImoutoToIchaLoveSeikatsu", Icons.Rounded.Favorite, Color(0xFFF472B6), isGame = true, isSystem = false, isEnabled = true, isRecommended = true, version = "v3.0.1"),
-            AllukaAppItem("umamusume", "Uma Musume Pretty Derby", "com.cygames.umamusume", Icons.Rounded.Pets, Color(0xFF10B981), isGame = true, isSystem = false, isEnabled = true, isRecommended = true, version = "v1.38.0"),
-            AllukaAppItem("wuthering", "Wuthering Waves", "com.kurogame.wutheringwaves.global", Icons.Rounded.Air, Color(0xFF06B6D4), isGame = true, isSystem = false, isEnabled = true, isRecommended = true, version = "v1.3.0"),
-            
-            // Installed User Apps (Disabled by default in AZenith)
-            AllukaAppItem("codm", "Call of Duty: Mobile", "com.activision.callofduty.shopper", Icons.Rounded.MilitaryTech, Color(0xFF64748B), isGame = true, isSystem = false, isEnabled = false, isRecommended = true, version = "v1.0.46"),
-            AllukaAppItem("genshin", "Genshin Impact", "com.miHoYo.GenshinImpact", Icons.Rounded.LocalFireDepartment, Color(0xFFEC4899), isGame = true, isSystem = false, isEnabled = false, isRecommended = true, version = "v5.1.0"),
-            AllukaAppItem("pubgm", "PUBG Mobile", "com.tencent.ig", Icons.Rounded.Shield, Color(0xFFF97316), isGame = true, isSystem = false, isEnabled = false, isRecommended = true, version = "v3.4.0"),
-            AllukaAppItem("spotify", "Spotify: Music & Podcasts", "com.spotify.music", Icons.Rounded.Headphones, Color(0xFF10B981), isGame = false, isSystem = false, isEnabled = false, isRecommended = false, version = "v8.9.74"),
-            AllukaAppItem("tiktok", "TikTok", "com.zhiliaoapp.musically", Icons.Rounded.VideoLibrary, Color(0xFF06B6D4), isGame = false, isSystem = false, isEnabled = false, isRecommended = false, version = "v36.2.4"),
-            AllukaAppItem("wa", "WhatsApp Messenger", "com.whatsapp", Icons.Rounded.Chat, Color(0xFF22C55E), isGame = false, isSystem = false, isEnabled = false, isRecommended = false, version = "v2.24.18.75"),
-            AllukaAppItem("yt", "YouTube", "com.google.android.youtube", Icons.Rounded.PlayArrow, Color(0xFFEF4444), isGame = false, isSystem = false, isEnabled = false, isRecommended = false, version = "v19.34.35"),
+    var selectedAppForConfig by remember { mutableStateOf<AllukaRealAppItem?>(null) }
+    var showAppDetailSheet by remember { mutableStateOf(false) }
 
-            // System Apps
-            AllukaAppItem("android_sys", "Android System", "android", Icons.Rounded.Android, Color(0xFF3B82F6), isGame = false, isSystem = true, isEnabled = false, isRecommended = false, version = "v13 (Tiramisu)"),
-            AllukaAppItem("play_services", "Google Play Services", "com.google.android.gms", Icons.Rounded.Extension, Color(0xFF3B82F6), isGame = false, isSystem = true, isEnabled = false, isRecommended = false, version = "v24.32.33"),
-            AllukaAppItem("settings_app", "Settings", "com.android.settings", Icons.Rounded.Settings, Color(0xFF64748B), isGame = false, isSystem = true, isEnabled = false, isRecommended = false, version = "v13.0"),
-            AllukaAppItem("sysui", "System UI", "com.android.systemui", Icons.Rounded.Widgets, Color(0xFF64748B), isGame = false, isSystem = true, isEnabled = false, isRecommended = false, version = "v13.0")
-        )
-    }
+    suspend fun queryInstalledApps(): List<AllukaRealAppItem> = withContext(Dispatchers.IO) {
+        val pm = context.packageManager
+        val enabledSet = AllukaEngine.getEnabledApps()
+        val installed = try {
+            pm.getInstalledPackages(PackageManager.GET_META_DATA)
+        } catch (_: Exception) {
+            emptyList()
+        }
 
-    // Query Real Installed Packages from Device PackageManager
-    LaunchedEffect(isRefreshing) {
-        try {
-            val pm = context.packageManager
-            val installed = pm.getInstalledApplications(PackageManager.GET_META_DATA)
-            installed.forEach { appInfo ->
-                val pkg = appInfo.packageName
-                if (pkg != context.packageName && appsList.none { it.packageName == pkg }) {
-                    val label = appInfo.loadLabel(pm).toString()
-                    val isSys = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-                    val isGame = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                        appInfo.category == ApplicationInfo.CATEGORY_GAME
-                    } else {
-                        (appInfo.flags and ApplicationInfo.FLAG_IS_GAME) != 0
-                    }
-                    val ver = try {
-                        val pInfo = pm.getPackageInfo(pkg, 0)
-                        "v${pInfo.versionName ?: "1.0"}"
-                    } catch (e: Exception) { "v1.0" }
-                    appsList.add(
-                        AllukaAppItem(
-                            id = pkg.replace(".", "_"),
-                            name = label,
-                            packageName = pkg,
-                            icon = if (isGame) Icons.Rounded.SportsEsports else if (isSys) Icons.Rounded.Android else Icons.Rounded.Apps,
-                            iconColor = if (isGame) Color(0xFFF59E0B) else if (isSys) Color(0xFF64748B) else Color(0xFF3B82F6),
-                            isGame = isGame,
-                            isSystem = isSys,
-                            isEnabled = false,
-                            isRecommended = isGame,
-                            version = ver
-                        )
-                    )
-                }
+        val result = ArrayList<AllukaRealAppItem>(installed.size)
+        for (pkg in installed) {
+            val appInfo = pkg.applicationInfo ?: continue
+            val label = try {
+                appInfo.loadLabel(pm).toString()
+            } catch (_: Exception) {
+                pkg.packageName
             }
-        } catch (e: Exception) {}
+            val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+
+            @Suppress("DEPRECATION")
+            val isGame = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                appInfo.category == ApplicationInfo.CATEGORY_GAME
+            } else {
+                (appInfo.flags and ApplicationInfo.FLAG_IS_GAME) != 0
+            }
+
+            result.add(
+                AllukaRealAppItem(
+                    packageName = pkg.packageName,
+                    name = label,
+                    isGame = isGame,
+                    isSystem = isSystem,
+                    appInfo = appInfo,
+                    isEnabled = enabledSet.contains(pkg.packageName),
+                    versionName = pkg.versionName ?: "v1.0"
+                )
+            )
+        }
+
+        val collator = Collator.getInstance(Locale.getDefault())
+        result.sortWith(
+            compareByDescending<AllukaRealAppItem> { it.isEnabled }
+                .thenByDescending { it.isGame }
+                .then(compareBy(collator) { it.name })
+        )
+        result
     }
 
-    // Exact AZenith Sorting: Enabled first, then Recommended first, then alphabetical label
-    val filteredApps = remember(searchQuery, showSystemApps, appsList.toList()) {
+    fun refreshApps() {
+        scope.launch {
+            isRefreshing = true
+            val start = System.currentTimeMillis()
+            val loaded = queryInstalledApps()
+            appsList = loaded
+            val elapsed = System.currentTimeMillis() - start
+            if (elapsed < 600) delay(600 - elapsed)
+            isRefreshing = false
+            isLoading = false
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        refreshApps()
+    }
+
+    val filteredApps = remember(appsList, searchQuery, showSystemApps) {
+        val query = searchQuery.trim().lowercase(Locale.getDefault())
         appsList.filter { app ->
+            val matchQuery = query.isEmpty() ||
+                    app.name.lowercase(Locale.getDefault()).contains(query) ||
+                    app.packageName.lowercase(Locale.getDefault()).contains(query)
             val matchSystem = showSystemApps || !app.isSystem
-            val matchQuery = if (searchQuery.isBlank()) true else {
-                app.name.contains(searchQuery, ignoreCase = true) ||
-                        app.packageName.contains(searchQuery, ignoreCase = true)
-            }
-            matchSystem && matchQuery
-        }.sortedWith(
-            compareByDescending<AllukaAppItem> { it.isEnabled }
-                .thenByDescending { it.isRecommended }
-                .thenBy { it.name }
-        )
+            matchQuery && matchSystem
+        }
     }
 
-    val largeCorner = 26.dp
-    val smallCorner = 4.dp
-    val topShape = RoundedCornerShape(topStart = largeCorner, topEnd = largeCorner, bottomStart = smallCorner, bottomEnd = smallCorner)
-    val middleShape = RoundedCornerShape(smallCorner)
-    val bottomShape = RoundedCornerShape(topStart = smallCorner, topEnd = smallCorner, bottomStart = largeCorner, bottomEnd = largeCorner)
-    val singleShape = RoundedCornerShape(largeCorner)
-
-    if (appToConfig != null) {
-        // Full AZenith AppSettingsScreen Replica
-        AllukaAppSettingsScreen(
-            app = appToConfig!!,
-            onBack = { appToConfig = null }
-        )
-    } else {
-        Scaffold(
-            topBar = {
-                if (isSearchActive) {
-                    TopAppBar(
-                        title = {
-                            TextField(
-                                value = searchQuery,
-                                onValueChange = { searchQuery = it },
-                                placeholder = { Text("Search apps.", fontSize = 15.sp) },
-                                colors = TextFieldDefaults.colors(
-                                    focusedContainerColor = Color.Transparent,
-                                    unfocusedContainerColor = Color.Transparent,
-                                    focusedIndicatorColor = Color.Transparent,
-                                    unfocusedIndicatorColor = Color.Transparent
-                                ),
-                                singleLine = true,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        },
-                        navigationIcon = {
-                            IconButton(onClick = { isSearchActive = false; searchQuery = "" }) {
-                                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
-                            }
-                        },
-                        actions = {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { searchQuery = "" }) {
-                                    Icon(Icons.Rounded.Close, contentDescription = "Clear")
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    if (isSearchActive) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Cari game atau aplikasi...", fontSize = 14.sp) },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp),
+                            shape = CircleShape,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = Color.Transparent,
+                                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                            ),
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { searchQuery = "" }) {
+                                        Icon(imageVector = Icons.Rounded.Close, contentDescription = "Clear", modifier = Modifier.size(18.dp))
+                                    }
                                 }
                             }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-                    )
-                } else {
-                    TopAppBar(
-                        title = {
-                            Text(
-                                text = "App List",
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 20.sp
-                            )
-                        },
-                        actions = {
-                            IconButton(onClick = { isSearchActive = true }) {
-                                Icon(Icons.Rounded.Search, contentDescription = "Search")
+                        )
+                    } else {
+                        Text(
+                            text = "App List",
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 21.sp
+                        )
+                    }
+                },
+                navigationIcon = {
+                    if (isSearchActive) {
+                        IconButton(onClick = {
+                            isSearchActive = false
+                            searchQuery = ""
+                        }) {
+                            Icon(imageVector = Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                        }
+                    }
+                },
+                actions = {
+                    if (!isSearchActive) {
+                        IconButton(onClick = { isSearchActive = true }) {
+                            Icon(imageVector = Icons.Rounded.Search, contentDescription = "Search")
+                        }
+                        IconButton(onClick = { refreshApps() }) {
+                            if (isRefreshing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            } else {
+                                Icon(imageVector = Icons.Rounded.Refresh, contentDescription = "Refresh")
                             }
+                        }
+                        Box {
                             IconButton(onClick = { menuExpanded = true }) {
-                                Icon(Icons.Rounded.MoreVert, contentDescription = "Menu")
+                                Icon(imageVector = Icons.Rounded.MoreVert, contentDescription = "Filter")
                             }
                             DropdownMenu(
                                 expanded = menuExpanded,
                                 onDismissRequest = { menuExpanded = false }
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Refresh") },
-                                    leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
-                                    onClick = {
-                                        menuExpanded = false
-                                        coroutineScope.launch {
-                                            isRefreshing = true
-                                            delay(800)
-                                            isRefreshing = false
-                                        }
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Show System Apps") },
-                                    trailingIcon = {
-                                        if (showSystemApps) {
-                                            Icon(Icons.Rounded.Check, contentDescription = null)
-                                        }
+                                    text = {
+                                        Text(if (showSystemApps) "Sembunyikan Aplikasi Sistem" else "Tampilkan Aplikasi Sistem")
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = if (showSystemApps) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                                            contentDescription = null
+                                        )
                                     },
                                     onClick = {
                                         showSystemApps = !showSystemApps
@@ -264,136 +242,127 @@ fun ApplistScreen(
                                     }
                                 )
                             }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-                    )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent
+                )
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState, modifier = Modifier.padding(bottom = 90.dp)) },
+        containerColor = Color.Transparent,
+        modifier = modifier
+    ) { innerPadding ->
+        Crossfade(
+            targetState = isLoading,
+            animationSpec = androidx.compose.animation.core.tween(300),
+            label = "AppListLoadingFade"
+        ) { loading ->
+            if (loading) {
+                // Modern Android 16 / AZenith Expressive Shimmer Skeleton Loading
+                SkeletonContent(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                ) {
+                    LazyColumn(
+                        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 100.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(8) {
+                            SkeletonListRow()
+                        }
+                    }
                 }
-            },
-            containerColor = Color.Transparent,
-            modifier = modifier
-        ) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-            ) {
-                if (filteredApps.isEmpty() && !isRefreshing) {
+            } else {
+                if (filteredApps.isEmpty()) {
                     Box(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "No apps match this search",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Widgets,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                modifier = Modifier.size(56.dp)
+                            )
+                            Text(
+                                text = if (searchQuery.isNotEmpty()) "Tidak ada aplikasi cocok dengan '$searchQuery'" else "Tidak ada aplikasi ditemukan",
+                                fontSize = 14.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 } else {
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 110.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    itemsIndexed(filteredApps, key = { _, item -> item.packageName }) { index, app ->
-                        val shape = when {
-                            filteredApps.size == 1 -> singleShape
-                            index == 0 -> topShape
-                            index == filteredApps.lastIndex -> bottomShape
-                            else -> middleShape
-                        }
-
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(shape)
-                                .clickable { appToConfig = app },
-                            color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
-                            shape = shape
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                        contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 100.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Summary Chip
+                        item {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                color = MaterialTheme.colorScheme.surfaceContainer,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
                             ) {
-                                // App Icon (60.dp squircle)
-                                Box(
-                                    modifier = Modifier
-                                        .size(52.dp)
-                                        .clip(RoundedCornerShape(14.dp))
-                                        .background(app.iconColor),
-                                    contentAlignment = Alignment.Center
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Icon(
-                                        imageVector = app.icon,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(26.dp)
-                                    )
-                                }
-
-                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = app.name,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
+                                        text = "${filteredApps.size} Aplikasi Terpasang",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    Text(
-                                        text = app.packageName,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.outline,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Row(
-                                        modifier = Modifier.padding(top = 4.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    val enabledCount = appsList.count { it.isEnabled }
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
                                     ) {
-                                        if (app.isEnabled) {
-                                            AzLabelText("Enabled", Color(0xFF4CAF50))
-                                        } else {
-                                            AzLabelText("Disabled", MaterialTheme.colorScheme.error)
-                                        }
-                                        if (app.isRecommended) {
-                                            AzLabelText("Recommended", MaterialTheme.colorScheme.primary)
-                                        }
-                                        if (app.isSystem) {
-                                            AzLabelText("System", MaterialTheme.colorScheme.secondary)
-                                        }
+                                        Text(
+                                            text = "$enabledCount Dioptimalkan",
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
                                     }
                                 }
                             }
                         }
-                    }
-                }
-                }
 
-                // Floating Android Material 3 Pull-To-Refresh Indicator (AZenith PullToRefreshDefaults.LoadingIndicator)
-                AnimatedVisibility(
-                    visible = isRefreshing,
-                    enter = fadeIn() + slideInVertically { -it / 2 },
-                    exit = fadeOut() + slideOutVertically { -it / 2 } + scaleOut(targetScale = 0.6f),
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = 8.dp)
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        tonalElevation = 6.dp,
-                        shadowElevation = 6.dp,
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 3.dp,
-                                color = MaterialTheme.colorScheme.primary,
-                                trackColor = Color.Transparent
+                        items(filteredApps, key = { it.packageName }) { app ->
+                            AppItemRow(
+                                app = app,
+                                onToggleEnabled = { enabled ->
+                                    val updated = appsList.map {
+                                        if (it.packageName == app.packageName) it.copy(isEnabled = enabled) else it
+                                    }
+                                    appsList = updated
+                                    scope.launch {
+                                        AllukaEngine.setAppEnabled(app.packageName, enabled)
+                                        snackbarHostState.showSnackbar(
+                                            if (enabled) "${app.name} ditambahkan ke optimasi Alluka" else "${app.name} dihapus dari optimasi"
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    selectedAppForConfig = app
+                                    showAppDetailSheet = true
+                                }
                             )
                         }
                     }
@@ -401,437 +370,97 @@ fun ApplistScreen(
             }
         }
     }
-}
 
-@Composable
-fun SkeletonAppItem(shape: RoundedCornerShape) {
-    val transition = rememberInfiniteTransition(label = "SkeletonTransition")
-    val alpha by transition.animateFloat(
-        initialValue = 0.30f,
-        targetValue = 0.58f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 900, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "SkeletonAlpha"
-    )
-
-    Surface(
-        modifier = Modifier.fillMaxWidth().clip(shape),
-        shape = shape,
-        color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Color.White.copy(alpha = alpha * 0.15f))
-            )
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(7.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.6f)
-                        .height(14.dp)
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Color.White.copy(alpha = alpha * 0.15f))
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.38f)
-                        .height(11.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(Color.White.copy(alpha = alpha * 0.15f))
-                )
-                Box(
-                    modifier = Modifier
-                        .width(52.dp)
-                        .height(14.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White.copy(alpha = alpha * 0.15f))
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun AzLabelText(text: String, color: Color) {
-    Surface(
-        color = color.copy(alpha = 0.12f),
-        shape = RoundedCornerShape(14.dp)
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
-            fontSize = 9.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = color
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AllukaAppSettingsScreen(
-    app: AllukaAppItem,
-    onBack: () -> Unit
-) {
-    var masterOn by remember { mutableStateOf(app.isEnabled) }
-    var activeSheet by remember { mutableStateOf<ActiveSheetConfig?>(null) }
-    val colorScheme = MaterialTheme.colorScheme
-    val context = LocalContext.current
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(text = "App Settings", fontWeight = FontWeight.Bold)
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = {
-                        try {
-                            val launchIntent = context.packageManager.getLaunchIntentForPackage(app.packageName)
-                            if (launchIntent != null) {
-                                context.startActivity(launchIntent)
-                            }
-                        } catch (e: Exception) {}
-                    }) {
-                        Icon(Icons.AutoMirrored.Rounded.Launch, contentDescription = "Launch")
-                    }
-                    IconButton(onClick = {
-                        try {
-                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = Uri.fromParts("package", app.packageName, null)
-                            }
-                            context.startActivity(intent)
-                        } catch (e: Exception) {}
-                    }) {
-                        Icon(Icons.Rounded.Info, contentDescription = "Info")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
-        },
-        containerColor = Color.Transparent
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Top Info Card
-            item {
-                Surface(
-                    color = colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(26.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(Icons.Rounded.Info, contentDescription = null, tint = colorScheme.primary)
-                        Text(
-                            text = "App-specific settings will override global settings; keep default to inherit global configuration",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-
-            // App Header
-            item {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(88.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(app.iconColor),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(app.icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(44.dp))
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(text = app.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text(text = app.packageName, style = MaterialTheme.typography.bodyMedium, color = colorScheme.primary)
-                    Surface(
-                        shape = CircleShape,
-                        color = colorScheme.secondaryContainer,
-                        modifier = Modifier.padding(top = 8.dp)
-                    ) {
-                        Text(
-                            text = app.version,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                        )
-                    }
-                }
-            }
-
-            // Master Switch
-            item {
-                Surface(
-                    shape = RoundedCornerShape(26.dp),
-                    color = colorScheme.surfaceColorAtElevation(1.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Rounded.PowerSettingsNew, contentDescription = null, tint = colorScheme.primary)
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = "Alluka Service", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                            Text(text = "Enabling this allows the performance profile to be triggered", fontSize = 12.sp, color = colorScheme.outline)
-                        }
-                        Switch(
-                            checked = masterOn,
-                            onCheckedChange = {
-                                masterOn = it
-                                app.isEnabled = it
-                            }
-                        )
-                    }
-                }
-            }
-
-            // Expanded Settings (Filtered - Only requested remaining features with BottomSheet Pickers)
-            if (masterOn) {
-                // Section: PERFORMANCE
-                item {
-                    Text(
-                        text = "PERFORMANCE",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = colorScheme.primary,
-                        modifier = Modifier.fillMaxWidth().padding(start = 12.dp, top = 8.dp)
-                    )
-                }
-                item {
-                    SettingOptionCard(
-                        icon = Icons.Rounded.Speed,
-                        title = "Performance Lite",
-                        desc = "Reduce CPU frequency to lower heat",
-                        value = when (app.perfLiteMode) {
-                            "true" -> "On"
-                            "false" -> "Off"
-                            else -> "Default"
-                        },
-                        onClick = {
-                            activeSheet = ActiveSheetConfig(
-                                title = "Performance Lite",
-                                subtitle = "Kurangi frekuensi CPU untuk meredam suhu & panas baterai",
-                                options = listOf(
-                                    OptionSheetItem("default", "Default", "Mengikuti setelan profil kernel global"),
-                                    OptionSheetItem("true", "On", "Aktifkan optimasi ini khusus untuk aplikasi ini"),
-                                    OptionSheetItem("false", "Off", "Nonaktifkan fitur ini untuk aplikasi ini")
-                                ),
-                                currentValue = app.perfLiteMode,
-                                onSelect = { app.perfLiteMode = it }
-                            )
-                        }
-                    )
-                }
-
-                // Section: ADDITIONAL SETTINGS
-                item {
-                    Text(
-                        text = "ADDITIONAL SETTINGS",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = colorScheme.primary,
-                        modifier = Modifier.fillMaxWidth().padding(start = 12.dp, top = 8.dp)
-                    )
-                }
-                item {
-                    Surface(
-                        shape = RoundedCornerShape(26.dp),
-                        color = colorScheme.surfaceColorAtElevation(1.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        SettingOptionRow(
-                            icon = Icons.Rounded.DoNotDisturbOn,
-                            title = "Do Not Disturb Mode",
-                            desc = "Block notifications while gaming",
-                            value = when (app.dndOnGaming) {
-                                "true" -> "On"
-                                "false" -> "Off"
-                                else -> "Default"
-                            },
-                            onClick = {
-                                activeSheet = ActiveSheetConfig(
-                                    title = "Do Not Disturb Mode",
-                                    subtitle = "Blokir notifikasi & pop-up saat aplikasi/game sedang aktif",
-                                    options = listOf(
-                                        OptionSheetItem("default", "Default", "Mengikuti setelan profil kernel global"),
-                                        OptionSheetItem("true", "On", "Aktifkan optimasi ini khusus untuk aplikasi ini"),
-                                        OptionSheetItem("false", "Off", "Nonaktifkan fitur ini untuk aplikasi ini")
-                                    ),
-                                    currentValue = app.dndOnGaming,
-                                    onSelect = { app.dndOnGaming = it }
-                                )
-                            }
-                        )
-                    }
-                }
-
-                // Section: DISPLAY & RENDER SETTINGS
-                item {
-                    Text(
-                        text = "DISPLAY & RENDER SETTINGS",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = colorScheme.primary,
-                        modifier = Modifier.fillMaxWidth().padding(start = 12.dp, top = 8.dp)
-                    )
-                }
-                item {
-                    Surface(
-                        shape = RoundedCornerShape(26.dp),
-                        color = colorScheme.surfaceColorAtElevation(1.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        SettingOptionRow(
-                            icon = Icons.Rounded.Layers,
-                            title = "Current Render Engine",
-                            desc = "Set preferred render engine",
-                            value = when (app.renderEngine) {
-                                "skiavk" -> "SkiaVK"
-                                "skiavkthreaded" -> "SkiaVK (Threaded)"
-                                "skiagl" -> "SkiaGL"
-                                "opengl" -> "OpenGL ES"
-                                "vulkan" -> "Vulkan"
-                                else -> "Default"
-                            },
-                            onClick = {
-                                activeSheet = ActiveSheetConfig(
-                                    title = "Current Render Engine",
-                                    subtitle = "Pilih backend rendering grafis khusus aplikasi ini",
-                                    options = listOf(
-                                        OptionSheetItem("default", "Default", "Pipeline grafis bawaan sistem Android"),
-                                        OptionSheetItem("skiavk", "SkiaVK", "Backend render Skia Vulkan berperforma tinggi"),
-                                        OptionSheetItem("skiavkthreaded", "SkiaVK (Threaded)", "Pipeline Skia Vulkan multithreaded"),
-                                        OptionSheetItem("skiagl", "SkiaGL", "Backend render Skia OpenGL ES"),
-                                        OptionSheetItem("opengl", "OpenGL ES", "Pipeline grafis OpenGL ES standar"),
-                                        OptionSheetItem("vulkan", "Vulkan", "Driver Vulkan langsung tingkat rendah")
-                                    ),
-                                    currentValue = app.renderEngine,
-                                    onSelect = { app.renderEngine = it }
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(80.dp))
-            }
-        }
-    }
-
-    // Modal Bottom Sheet Option Picker (AZenith Style)
-    if (activeSheet != null) {
-        val sheet = activeSheet!!
+    // Modal Bottom Sheet for App Details & Quick Options
+    if (showAppDetailSheet && selectedAppForConfig != null) {
+        val app = selectedAppForConfig!!
         ModalBottomSheet(
-            onDismissRequest = { activeSheet = null },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-            containerColor = colorScheme.surfaceColorAtElevation(3.dp),
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-            dragHandle = { BottomSheetDefaults.DragHandle() }
+            onDismissRequest = { showAppDetailSheet = false },
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .padding(horizontal = 20.dp, vertical = 8.dp)
+                    .padding(bottom = 36.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Text(
-                    text = sheet.title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = colorScheme.onSurface
-                )
-                if (sheet.subtitle.isNotBlank()) {
-                    Text(
-                        text = sheet.subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.outline
+                // Header
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    AppIconImage(
+                        packageName = app.packageName,
+                        appInfo = app.appInfo,
+                        appName = app.name,
+                        size = 52.dp
                     )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = app.name,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = app.packageName,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "Versi: ${app.versionName} • ${if (app.isGame) "Game" else if (app.isSystem) "Sistem" else "Aplikasi Pengguna"}",
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                sheet.options.forEach { opt ->
-                    val isSelected = opt.value == sheet.currentValue
-                    Surface(
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
+
+                // Actions
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
                         onClick = {
-                            sheet.onSelect(opt.value)
-                            activeSheet = null
+                            showAppDetailSheet = false
+                            try {
+                                val launchIntent = context.packageManager.getLaunchIntentForPackage(app.packageName)
+                                if (launchIntent != null) {
+                                    context.startActivity(launchIntent)
+                                } else {
+                                    scope.launch { snackbarHostState.showSnackbar("Tidak dapat membuka ${app.name}") }
+                                }
+                            } catch (_: Exception) {}
                         },
-                        shape = RoundedCornerShape(16.dp),
-                        color = if (isSelected) colorScheme.primaryContainer.copy(alpha = 0.35f)
-                                else Color.Transparent,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp)
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            RadioButton(
-                                selected = isSelected,
-                                onClick = {
-                                    sheet.onSelect(opt.value)
-                                    activeSheet = null
-                                },
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = colorScheme.primary
-                                )
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = opt.label,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                                    color = if (isSelected) colorScheme.primary else colorScheme.onSurface
-                                )
-                                Text(
-                                    text = opt.description,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = colorScheme.outline
-                                )
+                        Icon(imageVector = Icons.AutoMirrored.Rounded.Launch, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Buka App")
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            showAppDetailSheet = false
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.fromParts("package", app.packageName, null)
                             }
-                        }
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(imageVector = Icons.Rounded.Settings, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Info Sistem")
                     }
                 }
             }
@@ -840,73 +469,73 @@ fun AllukaAppSettingsScreen(
 }
 
 @Composable
-fun SettingOptionCard(
-    icon: ImageVector,
-    title: String,
-    desc: String,
-    value: String,
-    onClick: () -> Unit = {}
+fun AppItemRow(
+    app: AllukaRealAppItem,
+    onToggleEnabled: (Boolean) -> Unit,
+    onClick: () -> Unit
 ) {
     Surface(
-        shape = RoundedCornerShape(26.dp),
-        color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        SettingOptionRow(icon = icon, title = title, desc = desc, value = value, onClick = onClick)
-    }
-}
-
-@Composable
-fun SettingOptionRow(
-    icon: ImageVector,
-    title: String,
-    desc: String,
-    value: String,
-    onClick: () -> Unit = {}
-) {
-    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp)
+            .clickable { onClick() },
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (app.isEnabled) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f) else Color.White.copy(alpha = 0.05f)
+        )
     ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color.White.copy(alpha = 0.06f)),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Text(text = desc, fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
-        }
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = Color.White.copy(alpha = 0.08f)
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
+            AppIconImage(
+                packageName = app.packageName,
+                appInfo = app.appInfo,
+                appName = app.name,
+                size = 42.dp
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = app.name,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.5.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (app.isGame) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+                        ) {
+                            Text(
+                                text = "GAME",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
                 Text(
-                    text = value,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Icon(
-                    imageVector = Icons.Rounded.ChevronRight,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                    modifier = Modifier.size(16.dp)
+                    text = app.packageName,
+                    fontSize = 10.5.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
+            Switch(
+                checked = app.isEnabled,
+                onCheckedChange = onToggleEnabled
+            )
         }
     }
 }

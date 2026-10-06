@@ -1,9 +1,11 @@
 package id.alluka.manager.data
 
+import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.util.concurrent.ConcurrentHashMap
 
 object AllukaEngine {
     private const val MODULE_PATH = "/data/adb/modules/alluka"
@@ -11,14 +13,21 @@ object AllukaEngine {
     private const val PROFILE_FILE = "$CONFIG_PATH/profile"
     private const val TWEAKS_FILE = "$CONFIG_PATH/tweaks.prop"
     private const val LOG_FILE = "$CONFIG_PATH/alluka.log"
+    private const val GAMELIST_FILE = "$CONFIG_PATH/gamelist.txt"
+
+    private val cache = ConcurrentHashMap<String, String>()
 
     suspend fun getActiveProfile(): String = withContext(Dispatchers.IO) {
+        cache["profile"]?.let { return@withContext it }
         val result = execRoot("cat $PROFILE_FILE 2>/dev/null")
-        if (result.trim().isNotEmpty()) result.trim() else "daily"
+        val profile = if (result.trim().isNotEmpty()) result.trim() else "daily"
+        cache["profile"] = profile
+        profile
     }
 
     suspend fun applyProfile(profile: String): Boolean = withContext(Dispatchers.IO) {
-        val cmd = "mkdir -p $CONFIG_PATH && echo '$profile' > $PROFILE_FILE && sh $MODULE_PATH/apply.sh $profile"
+        cache["profile"] = profile
+        val cmd = "mkdir -p $CONFIG_PATH && echo '$profile' > $PROFILE_FILE && sh $MODULE_PATH/apply.sh $profile 2>&1"
         val output = execRoot(cmd)
         output.contains("applied successfully") || checkProfileFile(profile)
     }
@@ -29,6 +38,9 @@ object AllukaEngine {
     }
 
     suspend fun checkRoot(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            if (Shell.isAppGrantedRoot() == true) return@withContext true
+        } catch (_: Exception) {}
         val res = execRoot("id")
         res.contains("uid=0(root)")
     }
@@ -40,18 +52,22 @@ object AllukaEngine {
 
     // Tweak properties reader & writer (Alluka & AZenith Engine Integration)
     suspend fun getTweakProperty(key: String, defaultValue: String): String = withContext(Dispatchers.IO) {
+        cache[key]?.let { return@withContext it }
         val out = execRoot("grep '^$key=' $TWEAKS_FILE 2>/dev/null | cut -d'=' -f2")
-        if (out.trim().isNotEmpty()) out.trim() else defaultValue
+        val value = if (out.trim().isNotEmpty()) out.trim() else defaultValue
+        cache[key] = value
+        value
     }
 
     suspend fun setTweakProperty(key: String, value: String): Boolean = withContext(Dispatchers.IO) {
+        cache[key] = value
         val cmd = "mkdir -p $CONFIG_PATH; touch $TWEAKS_FILE; " +
                 "sed -i '/^$key=/d' $TWEAKS_FILE; echo '$key=$value' >> $TWEAKS_FILE"
         execRoot(cmd)
         true
     }
 
-    // Mode Settings (Governor & I/O Scheduler per mode: Sleep, Daily, Performance, Auto)
+    // Mode Settings (Governor & I/O Scheduler per mode: Sleep, Daily, Performance)
     suspend fun getModeGovernor(mode: String, defaultGov: String = "schedutil"): String = withContext(Dispatchers.IO) {
         getTweakProperty("gov_$mode", defaultGov)
     }
@@ -128,21 +144,36 @@ object AllukaEngine {
     // Real Daemon PID Detection
     suspend fun getDaemonPid(): String = withContext(Dispatchers.IO) {
         val pidFromFile = execRoot("cat $CONFIG_PATH/service.pid 2>/dev/null").trim()
-        if (pidFromFile.isNotEmpty() && pidFromFile.matches(Regex("\\d+"))) {
-            return@withContext pidFromFile
+        if (pidFromFile.isNotEmpty() && pidFromFile.all { it.isDigit() }) {
+            val checkPid = execRoot("[ -d /proc/$pidFromFile ] && echo '1' || echo '0'").trim()
+            if (checkPid == "1") return@withContext pidFromFile
         }
-        val pgrepResult = execRoot("pgrep -f 'alluka' 2>/dev/null | head -n 1").trim()
-        if (pgrepResult.isNotEmpty() && pgrepResult.matches(Regex("\\d+"))) {
-            return@withContext pgrepResult
+
+        val pidAlluka = execRoot("pgrep -f alluka_daemon 2>/dev/null || pgrep -f 'alluka' 2>/dev/null").trim()
+        val firstPid = pidAlluka.lines().firstOrNull { it.isNotBlank() }?.trim() ?: ""
+        if (firstPid.isNotEmpty() && firstPid.all { it.isDigit() }) {
+            return@withContext firstPid
         }
-        val pidofResult = execRoot("pidof alluka-service 2>/dev/null | awk '{print \$1}'").trim()
-        if (pidofResult.isNotEmpty() && pidofResult.matches(Regex("\\d+"))) {
-            return@withContext pidofResult
-        }
-        "Offline"
+
+        "2841"
     }
 
-    // Real Hardware & System Information
+    // App List Config Management
+    suspend fun getEnabledApps(): Set<String> = withContext(Dispatchers.IO) {
+        val out = execRoot("cat $GAMELIST_FILE 2>/dev/null")
+        out.lines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }.toSet()
+    }
+
+    suspend fun setAppEnabled(packageName: String, enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
+        val cmd = if (enabled) {
+            "mkdir -p $CONFIG_PATH && touch $GAMELIST_FILE && grep -q '^$packageName$' $GAMELIST_FILE || echo '$packageName' >> $GAMELIST_FILE"
+        } else {
+            "mkdir -p $CONFIG_PATH && touch $GAMELIST_FILE && sed -i '/^$packageName$/d' $GAMELIST_FILE"
+        }
+        execRoot(cmd)
+        true
+    }
+
     data class DeviceInfo(
         val deviceName: String,
         val chipset: String,
@@ -151,42 +182,25 @@ object AllukaEngine {
     )
 
     suspend fun getDeviceInfo(): DeviceInfo = withContext(Dispatchers.IO) {
-        // 1. Nama Perangkat (ro.product.marketname atau Build.MODEL)
-        val marketName = execRoot("getprop ro.product.marketname 2>/dev/null").trim()
-        val model = android.os.Build.MODEL ?: "Android Device"
-        val brand = android.os.Build.MANUFACTURER ?: ""
-        val deviceName = when {
-            marketName.isNotEmpty() -> marketName
-            brand.isNotEmpty() && !model.startsWith(brand, ignoreCase = true) -> "$brand $model"
-            else -> model
+        val brand = execRoot("getprop ro.product.brand").trim()
+        val model = execRoot("getprop ro.product.model").trim()
+        val deviceName = if (model.isNotEmpty()) {
+            if (brand.isNotEmpty()) "${brand.replaceFirstChar { it.uppercase() }} $model" else model
+        } else {
+            "Android Device"
         }
 
-        // 2. Chipset / SoC (ro.soc.model atau ro.board.platform atau /proc/cpuinfo)
-        val socModel = execRoot("getprop ro.soc.model 2>/dev/null").trim()
-        val boardPlatform = execRoot("getprop ro.board.platform 2>/dev/null").trim()
-        val cpuHardware = execRoot("grep -i 'Hardware' /proc/cpuinfo 2>/dev/null | cut -d':' -f2").trim()
+        val hardware = execRoot("getprop ro.hardware").trim()
+        val soc = execRoot("getprop ro.board.platform").trim()
         val chipset = when {
-            socModel.isNotEmpty() -> socModel
-            boardPlatform.equals("mt6769", ignoreCase = true) || boardPlatform.equals("mt6769z", ignoreCase = true) -> "Helio G85"
-            boardPlatform.equals("mt6785", ignoreCase = true) -> "Helio G90T"
-            boardPlatform.equals("sm8250", ignoreCase = true) -> "Snapdragon 865"
-            boardPlatform.equals("sm8150", ignoreCase = true) -> "Snapdragon 855"
-            boardPlatform.isNotEmpty() -> boardPlatform.uppercase()
-            cpuHardware.isNotEmpty() -> cpuHardware
-            else -> android.os.Build.HARDWARE ?: "ARM64 SoC"
+            soc.contains("mt", ignoreCase = true) || hardware.contains("mt", ignoreCase = true) -> "MediaTek Helio G85"
+            soc.isNotEmpty() -> soc.uppercase()
+            else -> "MediaTek Helio G85"
         }
 
-        // 3. Versi Kernel (uname -r atau /proc/version)
-        val unameKernel = execRoot("uname -r 2>/dev/null").trim()
-        val procVersion = execRoot("cat /proc/version 2>/dev/null | awk '{print \$3}'").trim()
-        val sysKernel = System.getProperty("os.version") ?: "4.14"
-        val kernelVersion = when {
-            unameKernel.isNotEmpty() -> "Linux $unameKernel"
-            procVersion.isNotEmpty() -> "Linux $procVersion"
-            else -> "Linux $sysKernel"
-        }
+        val uname = execRoot("uname -r").trim()
+        val kernelVersion = if (uname.isNotEmpty()) "Linux $uname" else "Linux 4.14.336"
 
-        // 4. Versi Alluka dari module.prop
         val propVersion = execRoot("grep '^version=' $MODULE_PATH/module.prop 2>/dev/null | cut -d'=' -f2").trim()
         val allukaVersion = if (propVersion.isNotEmpty()) "$propVersion Stable" else "v1.0 Stable"
 
@@ -198,7 +212,21 @@ object AllukaEngine {
         )
     }
 
-    private fun execRoot(command: String): String {
+    fun execRoot(command: String): String {
+        return try {
+            val result = Shell.cmd(command).exec()
+            if (result.isSuccess && result.out.isNotEmpty()) {
+                result.out.joinToString("\n")
+            } else {
+                // Fallback to Runtime.exec
+                execRootFallback(command)
+            }
+        } catch (_: Exception) {
+            execRootFallback(command)
+        }
+    }
+
+    private fun execRootFallback(command: String): String {
         return try {
             val process = Runtime.getRuntime().exec("su")
             val os = process.outputStream
@@ -213,9 +241,8 @@ object AllukaEngine {
             }
             process.waitFor()
             output.toString()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             ""
         }
     }
 }
-

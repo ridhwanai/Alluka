@@ -255,7 +255,7 @@ fun HomeScreen(
                                 )
                             }
 
-                            Divider(color = Color.White.copy(alpha = 0.05f))
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
 
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 DeviceInfoItem(modifier = Modifier.weight(1f), icon = Icons.Rounded.Smartphone, label = "Nama Perangkat", value = deviceInfo.deviceName)
@@ -335,14 +335,6 @@ fun HomeScreen(
             }
         }
 
-        // AZenith Floating Navbar Positioned at Bottom Center (Lebih Tinggi)
-        AllukaFloatingNavBar(
-            selectedRoute = selectedNavRoute,
-            onRouteSelected = onRouteSelected,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 16.dp)
-        )
 
         // AZenith Profile Selection Dialog
         if (showProfileDialog) {
