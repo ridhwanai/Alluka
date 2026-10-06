@@ -16,8 +16,13 @@ echo "==> Packaging Alluka v$VERSION KernelSU / APatch / Magisk Module..."
 # Copy manager APK if built
 if [ -f "$ROOT_DIR/manager/app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
   cp "$ROOT_DIR/manager/app/build/outputs/apk/release/app-release-unsigned.apk" "$MODULE_DIR/Alluka.apk"
+  cp "$ROOT_DIR/manager/app/build/outputs/apk/release/app-release-unsigned.apk" "$DIST_DIR/Alluka.apk"
+elif [ -f "$ROOT_DIR/manager/app/build/outputs/apk/release/app-release.apk" ]; then
+  cp "$ROOT_DIR/manager/app/build/outputs/apk/release/app-release.apk" "$MODULE_DIR/Alluka.apk"
+  cp "$ROOT_DIR/manager/app/build/outputs/apk/release/app-release.apk" "$DIST_DIR/Alluka.apk"
 elif [ -f "$ROOT_DIR/manager/app/build/outputs/apk/debug/app-debug.apk" ]; then
   cp "$ROOT_DIR/manager/app/build/outputs/apk/debug/app-debug.apk" "$MODULE_DIR/Alluka.apk"
+  cp "$ROOT_DIR/manager/app/build/outputs/apk/debug/app-debug.apk" "$DIST_DIR/Alluka.apk"
 fi
 
 ZIP_NAME="Alluka-v${VERSION}.zip"

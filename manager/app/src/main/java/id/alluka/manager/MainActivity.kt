@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import id.alluka.manager.ui.mainscreens.ApplistScreen
 import id.alluka.manager.ui.mainscreens.HomeScreen
 import id.alluka.manager.ui.mainscreens.SettingsScreen
+import id.alluka.manager.ui.mainscreens.TweakScreen
 import id.alluka.manager.ui.navigation.AllukaFloatingNavBar
 import id.alluka.manager.ui.theme.AllukaTheme
 
@@ -31,7 +32,7 @@ class MainActivity : ComponentActivity() {
                             onRouteSelected = { currentRoute = it }
                         )
                         "applist" -> ApplistScreen()
-                        "tweaks" -> ApplistScreen()
+                        "tweaks" -> TweakScreen()
                         "settings" -> SettingsScreen()
                     }
 

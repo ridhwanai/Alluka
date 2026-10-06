@@ -27,8 +27,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import android.content.pm.PackageManager
+import android.content.pm.ApplicationInfo
 import id.alluka.manager.R
 
 class AllukaAppItem(
@@ -78,6 +82,7 @@ fun ApplistScreen(
     var isRefreshing by remember { mutableStateOf(false) }
     var appToConfig by remember { mutableStateOf<AllukaAppItem?>(null) }
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     // Exact AZenith Apps Data (11 default enabled games from azenithApplist.json + user apps + system apps)
     val appsList = remember {
@@ -109,6 +114,44 @@ fun ApplistScreen(
             AllukaAppItem("settings_app", "Settings", "com.android.settings", Icons.Rounded.Settings, Color(0xFF64748B), isGame = false, isSystem = true, isEnabled = false, isRecommended = false, version = "v13.0"),
             AllukaAppItem("sysui", "System UI", "com.android.systemui", Icons.Rounded.Widgets, Color(0xFF64748B), isGame = false, isSystem = true, isEnabled = false, isRecommended = false, version = "v13.0")
         )
+    }
+
+    // Query Real Installed Packages from Device PackageManager
+    LaunchedEffect(isRefreshing) {
+        try {
+            val pm = context.packageManager
+            val installed = pm.getInstalledApplications(PackageManager.GET_META_DATA)
+            installed.forEach { appInfo ->
+                val pkg = appInfo.packageName
+                if (pkg != context.packageName && appsList.none { it.packageName == pkg }) {
+                    val label = appInfo.loadLabel(pm).toString()
+                    val isSys = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                    val isGame = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        appInfo.category == ApplicationInfo.CATEGORY_GAME
+                    } else {
+                        (appInfo.flags and ApplicationInfo.FLAG_IS_GAME) != 0
+                    }
+                    val ver = try {
+                        val pInfo = pm.getPackageInfo(pkg, 0)
+                        "v${pInfo.versionName ?: "1.0"}"
+                    } catch (e: Exception) { "v1.0" }
+                    appsList.add(
+                        AllukaAppItem(
+                            id = pkg.replace(".", "_"),
+                            name = label,
+                            packageName = pkg,
+                            icon = if (isGame) Icons.Rounded.SportsEsports else if (isSys) Icons.Rounded.Android else Icons.Rounded.Apps,
+                            iconColor = if (isGame) Color(0xFFF59E0B) else if (isSys) Color(0xFF64748B) else Color(0xFF3B82F6),
+                            isGame = isGame,
+                            isSystem = isSys,
+                            isEnabled = false,
+                            isRecommended = isGame,
+                            version = ver
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {}
     }
 
     // Exact AZenith Sorting: Enabled first, then Recommended first, then alphabetical label
@@ -441,6 +484,7 @@ fun AllukaAppSettingsScreen(
     var masterOn by remember { mutableStateOf(app.isEnabled) }
     var activeSheet by remember { mutableStateOf<ActiveSheetConfig?>(null) }
     val colorScheme = MaterialTheme.colorScheme
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -454,10 +498,24 @@ fun AllukaAppSettingsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {}) {
+                    IconButton(onClick = {
+                        try {
+                            val launchIntent = context.packageManager.getLaunchIntentForPackage(app.packageName)
+                            if (launchIntent != null) {
+                                context.startActivity(launchIntent)
+                            }
+                        } catch (e: Exception) {}
+                    }) {
                         Icon(Icons.AutoMirrored.Rounded.Launch, contentDescription = "Launch")
                     }
-                    IconButton(onClick = {}) {
+                    IconButton(onClick = {
+                        try {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.fromParts("package", app.packageName, null)
+                            }
+                            context.startActivity(intent)
+                        } catch (e: Exception) {}
+                    }) {
                         Icon(Icons.Rounded.Info, contentDescription = "Info")
                     }
                 },

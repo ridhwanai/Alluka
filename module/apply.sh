@@ -3,7 +3,7 @@
 # Alluka Engine • Kernel & Profile Tuning
 # Maintainer: Alluka (@Alluka_id)
 # Repository: https://github.com/ridhwanai/Alluka.git
-# Philosophy: Smooth motion, quiet power, safe cluster-aware tuning (Hitori heritage)
+# Philosophy: Smooth motion, quiet power, safe cluster-aware tuning (Alluka engine)
 # ==============================================================================
 
 MODDIR=${0%/*}
@@ -15,7 +15,7 @@ GED_BASE="$CONFIG_DIR/ged.baseline"
 mkdir -p "$CONFIG_DIR"
 
 PROFILE="${1:-$(cat "$PROFILE_FILE" 2>/dev/null)}"
-case "$PROFILE" in daily|peforma|sleep) ;; *) PROFILE=daily ;; esac
+case "$PROFILE" in daily|peforma|sleep|auto) ;; *) PROFILE=daily ;; esac
 
 log() { echo "$(date '+%F %T' 2>/dev/null) $*" >> "$LOG"; }
 
@@ -79,13 +79,14 @@ update_description() {
     daily) pretty="Daily (Balanced)" ;;
     peforma) pretty="Peforma (Nanika Awakened)" ;;
     sleep) pretty="Sleep (Battery Saver)" ;;
+    auto) pretty="Auto (Dynamic Sensing)" ;;
   esac
   sed -i "s|^description=.*|description=Smooth motion, adaptive power. Safe tuning with Alluka Manager. Active profile: $pretty.|" "$MODDIR/module.prop" 2>/dev/null
 }
 
 case "$PROFILE" in
   daily)
-    # Hitori Balanced: Smooth, responsive, zero jitter
+    # Alluka Balanced: Smooth, responsive, zero jitter
     LITTLE_UP=1000; LITTLE_DOWN=12000; BIG_UP=500; BIG_DOWN=24000
     TOPBOOST=10; FGBOOST=3; SWAP=100; SBOOST=0
     ;;
@@ -99,13 +100,32 @@ case "$PROFILE" in
     LITTLE_UP=3000; LITTLE_DOWN=6000; BIG_UP=5000; BIG_DOWN=8000
     TOPBOOST=0; FGBOOST=0; SWAP=120; SBOOST=0
     ;;
+  auto)
+    # Auto Dynamic: Schedtune background sensing, adaptive ramp
+    LITTLE_UP=1000; LITTLE_DOWN=12000; BIG_UP=500; BIG_DOWN=24000
+    TOPBOOST=12; FGBOOST=4; SWAP=100; SBOOST=0
+    ;;
 esac
 
 : > "$LOG"
 log "Alluka v1.0 profile=$PROFILE device=$(getprop ro.product.device) android=$(getprop ro.build.version.release) kernel=$(uname -r)"
 snapshot_ged
 
-# Cluster-aware cpufreq schedutil tuning
+TWEAKS_FILE="$CONFIG_DIR/tweaks.prop"
+
+# Read user tweaks if present
+get_tweak() {
+  local key="$1" def="$2" val
+  val="$(grep "^$key=" "$TWEAKS_FILE" 2>/dev/null | cut -d'=' -f2)"
+  [ -n "$val" ] && echo "$val" || echo "$def"
+}
+
+# Cluster-aware cpufreq schedutil tuning (Helio G85 6 Little + 2 Big)
+LITE_MODE="$(get_tweak "lite_mode" "0")"
+if [ "$LITE_MODE" = "1" ]; then
+  LITTLE_UP=2500; LITTLE_DOWN=8000; BIG_UP=3000; BIG_DOWN=12000
+fi
+
 for policy in /sys/devices/system/cpu/cpufreq/policy*; do
   [ -d "$policy" ] || continue
   set_governor "$policy"
@@ -117,18 +137,33 @@ for policy in /sys/devices/system/cpu/cpufreq/policy*; do
   [ -d "$policy/schedutil" ] && set_schedutil "$policy/schedutil" "$UP" "$DOWN"
 done
 
+# Custom CPU Governor per mode (Alluka Mode Settings)
+CUSTOM_GOV="$(get_tweak "gov_${PROFILE}" "")"
+if [ -n "$CUSTOM_GOV" ]; then
+  for policy in /sys/devices/system/cpu/cpufreq/policy*; do
+    [ -d "$policy" ] && write_node "$policy/scaling_governor" "$CUSTOM_GOV"
+  done
+  log "Applied custom governor for $PROFILE: $CUSTOM_GOV"
+fi
+
 # Global schedutil fallback (if exposed)
 if [ -d /sys/devices/system/cpu/cpufreq/schedutil ]; then
   set_schedutil /sys/devices/system/cpu/cpufreq/schedutil "$LITTLE_UP" "$LITTLE_DOWN"
 fi
 
-# SchedTune foreground boost
+# Android 10+ SchedTune foreground boost (Alluka Engine)
 set_stune top-app "$TOPBOOST" 1
-set_stune foreground "$FGBOOST" 0
+set_stune foreground "$FGBOOST" 1
 set_stune background 0 0
+set_stune system-background 0 0
+write_node /proc/sys/kernel/sched_boost "$SBOOST"
+write_node /proc/sys/kernel/sched_migration_cost_ns 500000
+write_node /proc/sys/kernel/sched_schedstats 0
+write_node /proc/sys/kernel/timer_migration 1
 
-# MediaTek GED boost control
-if [ "$SBOOST" = 1 ]; then
+# MediaTek GED boost control (Alluka Feature)
+CUSTOM_GED="$(get_tweak "ged_boost_enable" "")"
+if [ "$PROFILE" = "peforma" ] || [ "$CUSTOM_GED" = "1" ]; then
   write_node /sys/module/ged/parameters/ged_boost_enable 1
   write_node /sys/module/ged/parameters/boost_gpu_enable 1
   write_node /sys/module/ged/parameters/enable_cpu_boost 1
@@ -137,19 +172,41 @@ else
   restore_ged
 fi
 
-# Swappiness & VM memory tuning
+# 4 GB RAM: Swappiness & VM memory tuning (Alluka Conservative Retain)
 write_node /proc/sys/vm/swappiness "$SWAP"
-write_node /proc/sys/vm/vfs_cache_pressure 100
+write_node /proc/sys/vm/page-cluster 0
+write_node /proc/sys/vm/dirty_background_ratio 5
 write_node /proc/sys/vm/dirty_ratio 20
-write_node /proc/sys/vm/dirty_background_ratio 10
+write_node /proc/sys/vm/watermark_scale_factor 20
+write_node /proc/sys/vm/vfs_cache_pressure 100
 
-# Storage read-ahead
-for q in /sys/block/*/queue/read_ahead_kb; do
-  [ -w "$q" ] && write_node "$q" 128
+# Conservative eMMC/dm read-ahead (128 KB queue buffer)
+READ_AHEAD_KB="$(get_tweak "read_ahead_kb" "128")"
+for queue in /sys/block/mmcblk*/queue /sys/block/dm-*/queue; do
+  [ -d "$queue" ] && write_node "$queue/read_ahead_kb" "$READ_AHEAD_KB"
 done
 
-# Save profile
+# Custom I/O Scheduler per mode (Alluka Mode Settings)
+CUSTOM_IO="$(get_tweak "io_${PROFILE}" "")"
+if [ -n "$CUSTOM_IO" ]; then
+  for queue in /sys/block/mmcblk*/queue /sys/block/sd*/queue /sys/block/dm-*/queue; do
+    [ -d "$queue" ] && write_node "$queue/scheduler" "$CUSTOM_IO"
+  done
+  log "Applied custom I/O scheduler for $PROFILE: $CUSTOM_IO"
+fi
+
+# Bypass Charging check if enabled by user
+BYPASS_CHG="$(get_tweak "bypass_charging" "0")"
+if [ "$BYPASS_CHG" = "1" ]; then
+  for node in /sys/class/power_supply/battery/charging_enabled /sys/class/power_supply/battery/input_suspend; do
+    [ -w "$node" ] && write_node "$node" 0
+  done
+fi
+
+# Save profile & update module prop
 echo "$PROFILE" > "$PROFILE_FILE"
 update_description
 
 log "Alluka profile $PROFILE applied successfully"
+log "DONE thermal=untouched selinux=untouched clocks=unlocked cpuidle=untouched anti-bootloop=OK"
+

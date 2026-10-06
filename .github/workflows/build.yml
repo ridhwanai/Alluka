@@ -45,3 +45,43 @@ jobs:
         with:
           name: Alluka-Module-v1.0
           path: dist/*
+
+      - name: Send Release to Telegram
+        if: success()
+        env:
+          TELEGRAM_BOT_TOKEN: "8856603947:AAEFyhBZR073avDNqbevF2pWl749S6Vjemw"
+          TELEGRAM_CHAT_ID: "5313283857"
+        run: |
+          echo "Sending Alluka build artifacts to Telegram..."
+          
+          COMMIT_MSG=$(git log -1 --pretty=%B | head -n 1)
+          COMMIT_HASH=$(git rev-parse --short HEAD)
+          
+          MSG_TEXT="✨ <b>Alluka v1.0 Release Build Selesai!</b>%0A%0A📱 <b>Nama Aplikasi:</b> Alluka%0A🚀 <b>Branch:</b> ${GITHUB_REF_NAME}%0A🔗 <b>Commit:</b> <code>${COMMIT_HASH}</code> - ${COMMIT_MSG}%0A👤 <b>Maintainer:</b> @Alluka_id"
+          
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "text=${MSG_TEXT}" \
+            -d "parse_mode=HTML" || true
+
+          for zip_file in dist/*.zip; do
+            if [ -f "$zip_file" ]; then
+              echo "Uploading $zip_file to Telegram..."
+              curl -s -F chat_id="${TELEGRAM_CHAT_ID}" \
+                   -F document=@"$zip_file" \
+                   -F caption="📦 <b>Alluka Module (KernelSU / APatch / Magisk)</b>%0AFile: $(basename "$zip_file")" \
+                   -F parse_mode="HTML" \
+                   "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument"
+            fi
+          done
+
+          for apk_file in dist/*.apk manager/app/build/outputs/apk/*/*.apk; do
+            if [ -f "$apk_file" ]; then
+              echo "Uploading $apk_file to Telegram..."
+              curl -s -F chat_id="${TELEGRAM_CHAT_ID}" \
+                   -F document=@"$apk_file" \
+                   -F caption="📱 <b>Alluka Manager APK</b>%0AFile: $(basename "$apk_file")" \
+                   -F parse_mode="HTML" \
+                   "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument"
+            fi
+          done

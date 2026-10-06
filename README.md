@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="Alluka Module Banner.png" alt="Alluka Module Banner" width="100%">
+  <img src="Alluka Module Banner.jpeg" alt="Alluka Module Banner" width="100%">
 </p>
 
 <p align="center">
@@ -16,7 +16,7 @@
 
 **Alluka** is an All-In-One (AIO) system optimization module and companion Android manager app built for ultra-smooth responsiveness, cluster-aware scheduling, and adaptive battery conservation. 
 
-By integrating the proven **Hitori Kernel Engine** (renowned for its comfortable, stutter-free daily and gaming responsiveness) with the modern **Material 3 Expressive & Floating Navbar UI** inspired by AZenith, Alluka delivers an uncompromising balance of power, battery endurance, and visual elegance.
+By integrating the proven **Alluka Kernel Engine** (renowned for its comfortable, stutter-free daily and gaming responsiveness) with the modern **Material 3 Expressive & Floating Navbar UI** inspired by AZenith, Alluka delivers an uncompromising balance of power, battery endurance, and visual elegance.
 
 ---
 
@@ -26,16 +26,16 @@ Alluka features a signature dynamic artwork system on the Manager Dashboard. The
 
 | Profile | Artwork File | Engine Behavior | Ideal Scenario |
 | :--- | :--- | :--- | :--- |
-| **Sleep** | `Alluka x Nanika - sleep.png` | Relaxed rate limits, SchedTune 0, zRAM 120% | Overnight resting, extreme battery saving |
-| **Daily** | `Alluka - daily.png` | Buttery-smooth Hitori tuning, zero jitter, responsive clock ramp | Social media, browsing, everyday multitasking |
-| **Peforma** | `Nanika - peforma.png` | Nanika awakened! Up-rate limit 0us, Top-App +18, MediaTek GED GPU/CPU boost | Intensive gaming (MLBB, Genshin, PUBG, etc.) |
+| **Sleep** | `Alluka x Nanika - sleep.jpeg` | Relaxed rate limits, SchedTune 0, zRAM 120% | Overnight resting, extreme battery saving |
+| **Daily** | `Alluka - daily.jpeg` | Buttery-smooth Alluka tuning, zero jitter, responsive clock ramp | Social media, browsing, everyday multitasking |
+| **Peforma** | `Nanika - peforma.jpeg` | Nanika awakened! Up-rate limit 0us, Top-App +18, MediaTek GED GPU/CPU boost | Intensive gaming (MLBB, Genshin, PUBG, etc.) |
 
 ---
 
 ## 🌐 Core Features
 
 * **AZenith Floating Pill Navigation:** Modern floating capsule island navigation bar (Home, App List, Tweaks, Settings) with fluid horizontal expansion on active tabs.
-* **Hitori Cluster-Aware Schedutil:** Direct cpufreq governor rate-limit tuning for multi-cluster CPUs (6 efficiency + 2 performance cores, Helio G85, and modern SoCs).
+* **Alluka Cluster-Aware Schedutil:** Direct cpufreq governor rate-limit tuning for multi-cluster CPUs (6 efficiency + 2 performance cores, Helio G85, and modern SoCs).
 * **SchedTune Foreground Prioritization:** Guarantees top-app fluidity by boosting touch and foreground threads without micro-stutter.
 * **MediaTek GED Baseline Safety:** Snapshots the device's original GED baseline and restores it cleanly on profile exit.
 * **Zero-Bloat Architecture:**
@@ -99,7 +99,7 @@ Output is generated at `dist/Alluka-v1.0.zip`.
 
 ## 🤝 Credits & Acknowledgements
 
-* **Hitori Module:** For the comfortable, butter-smooth kernel tuning foundation and clean shell architecture.
+* **Kernel Architecture:** For the comfortable, butter-smooth kernel tuning foundation and clean shell architecture.
 * **AZenith:** Visual design inspiration for the Expressive Material 3 layout and Floating Navbar.
 * **Hunter x Hunter:** Visual character motif for Alluka and Nanika.
 

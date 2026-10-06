@@ -42,6 +42,17 @@ fun HomeScreen(
     var isModuleActive by remember { mutableStateOf(true) }
     var hasRoot by remember { mutableStateOf(true) }
     var isApplying by remember { mutableStateOf(false) }
+    var daemonPid by remember { mutableStateOf("2841") }
+    var deviceInfo by remember {
+        mutableStateOf(
+            AllukaEngine.DeviceInfo(
+                deviceName = "Redmi Note 9",
+                chipset = "Helio G85",
+                kernelVersion = "Linux 4.14.336",
+                allukaVersion = "v1.0 Stable"
+            )
+        )
+    }
 
     var showProfileDialog by remember { mutableStateOf(false) }
 
@@ -56,6 +67,8 @@ fun HomeScreen(
             "peforma" -> AllukaProfile.PEFORMA
             else -> AllukaProfile.DAILY
         }
+        daemonPid = AllukaEngine.getDaemonPid()
+        deviceInfo = AllukaEngine.getDeviceInfo()
     }
 
     fun selectProfile(profile: AllukaProfile) {
@@ -125,7 +138,7 @@ fun HomeScreen(
                 item {
                     AllukaDynamicBanner(
                         currentProfile = currentProfile,
-                        pid = "2841",
+                        pid = daemonPid,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(165.dp)
@@ -245,12 +258,12 @@ fun HomeScreen(
                             Divider(color = Color.White.copy(alpha = 0.05f))
 
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                DeviceInfoItem(modifier = Modifier.weight(1f), icon = Icons.Rounded.Smartphone, label = "Nama Perangkat", value = "Redmi Note 9")
-                                DeviceInfoItem(modifier = Modifier.weight(1f), icon = Icons.Rounded.Memory, label = "Chipset", value = "Helio G85")
+                                DeviceInfoItem(modifier = Modifier.weight(1f), icon = Icons.Rounded.Smartphone, label = "Nama Perangkat", value = deviceInfo.deviceName)
+                                DeviceInfoItem(modifier = Modifier.weight(1f), icon = Icons.Rounded.Memory, label = "Chipset", value = deviceInfo.chipset)
                             }
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                DeviceInfoItem(modifier = Modifier.weight(1f), icon = Icons.Rounded.Code, label = "Versi Kernel", value = "Linux 4.14.336")
-                                DeviceInfoItem(modifier = Modifier.weight(1f), icon = Icons.Rounded.AutoAwesome, label = "Versi Alluka", value = "v1.0 Stable", isHighlight = true)
+                                DeviceInfoItem(modifier = Modifier.weight(1f), icon = Icons.Rounded.Code, label = "Versi Kernel", value = deviceInfo.kernelVersion)
+                                DeviceInfoItem(modifier = Modifier.weight(1f), icon = Icons.Rounded.AutoAwesome, label = "Versi Alluka", value = deviceInfo.allukaVersion, isHighlight = true)
                             }
                         }
                     }
