@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import id.alluka.manager.R
 
-data class AllukaAppItem(
+class AllukaAppItem(
     val id: String,
     val name: String,
     val packageName: String,
@@ -36,7 +36,7 @@ data class AllukaAppItem(
     val iconColor: Color,
     val isGame: Boolean,
     val isSystem: Boolean,
-    var isEnabled: Boolean,
+    isEnabled: Boolean,
     val isRecommended: Boolean,
     val version: String = "v1.0.0",
     var perfLiteMode: String = "default",
@@ -48,7 +48,9 @@ data class AllukaAppItem(
     var renderEngine: String = "default",
     var downscalePercent: Int = 0,
     var targetFps: Int = 0
-)
+) {
+    var isEnabled by mutableStateOf(isEnabled)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -292,14 +294,6 @@ fun ApplistScreen(
                                         }
                                     }
                                 }
-
-                                Switch(
-                                    checked = app.isEnabled,
-                                    onCheckedChange = { isChecked ->
-                                        app.isEnabled = isChecked
-                                    },
-                                    modifier = Modifier.padding(start = 8.dp)
-                                )
                             }
                         }
                     }
