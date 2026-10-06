@@ -14,6 +14,7 @@ object AllukaEngine {
     private const val TWEAKS_FILE = "$CONFIG_PATH/tweaks.prop"
     private const val LOG_FILE = "$CONFIG_PATH/alluka.log"
     private const val GAMELIST_FILE = "$CONFIG_PATH/gamelist.txt"
+    private const val DAEMON_SCRIPT = "$MODULE_PATH/alluka_daemon.sh"
 
     private val cache = ConcurrentHashMap<String, String>()
 
@@ -27,14 +28,23 @@ object AllukaEngine {
 
     suspend fun applyProfile(profile: String): Boolean = withContext(Dispatchers.IO) {
         cache["profile"] = profile
-        val cmd = "mkdir -p $CONFIG_PATH && echo '$profile' > $PROFILE_FILE && sh $MODULE_PATH/apply.sh $profile 2>&1"
-        val output = execRoot(cmd)
-        output.contains("applied successfully") || checkProfileFile(profile)
+        val cmd = "mkdir -p $CONFIG_PATH && echo '$profile' > $PROFILE_FILE && chmod 0755 $MODULE_PATH/apply.sh && sh $MODULE_PATH/apply.sh $profile 2>&1"
+        execRoot(cmd)
+
+        if (profile == "auto") {
+            startAutoDaemon()
+        }
+
+        true
     }
 
-    private suspend fun checkProfileFile(expected: String): Boolean = withContext(Dispatchers.IO) {
-        val current = execRoot("cat $PROFILE_FILE 2>/dev/null").trim()
-        current == expected
+    suspend fun startAutoDaemon(): Boolean = withContext(Dispatchers.IO) {
+        val check = execRoot("pgrep -f alluka_daemon 2>/dev/null").trim()
+        if (check.isEmpty()) {
+            val cmd = "chmod 0755 $DAEMON_SCRIPT 2>/dev/null && nohup sh $DAEMON_SCRIPT >/dev/null 2>&1 &"
+            execRoot(cmd)
+        }
+        true
     }
 
     suspend fun checkRoot(): Boolean = withContext(Dispatchers.IO) {
@@ -64,6 +74,34 @@ object AllukaEngine {
         val cmd = "mkdir -p $CONFIG_PATH; touch $TWEAKS_FILE; " +
                 "sed -i '/^$key=/d' $TWEAKS_FILE; echo '$key=$value' >> $TWEAKS_FILE"
         execRoot(cmd)
+
+        // Live Kernel Sysfs Node Enforcement
+        when (key) {
+            "lite_mode" -> {
+                execRoot("sh $MODULE_PATH/apply.sh 2>&1")
+            }
+            "cluster_sched" -> {
+                if (value == "1") {
+                    execRoot("""
+                        for p in /sys/devices/system/cpu/cpufreq/policy*/schedutil; do
+                            [ -d ${'$'}p ] && echo 1000 > ${'$'}p/up_rate_limit_us && echo 12000 > ${'$'}p/down_rate_limit_us
+                        done
+                    """.trimIndent())
+                }
+            }
+            "zram_vm" -> {
+                val swappiness = if (value == "1") "100" else "60"
+                execRoot("echo $swappiness > /proc/sys/vm/swappiness; echo 0 > /proc/sys/vm/page-cluster")
+            }
+            "read_ahead" -> {
+                val kb = if (value == "1") "1024" else "128"
+                execRoot("for q in /sys/block/mmcblk*/queue /sys/block/dm-*/queue; do [ -d ${'$'}q ] && echo $kb > ${'$'}q/read_ahead_kb 2>/dev/null; done")
+            }
+            "sched_migration" -> {
+                val ns = if (value == "1") "500000" else "1000000"
+                execRoot("echo $ns > /proc/sys/kernel/sched_migration_cost_ns 2>/dev/null")
+            }
+        }
         true
     }
 
@@ -74,6 +112,11 @@ object AllukaEngine {
 
     suspend fun setModeGovernor(mode: String, governor: String): Boolean = withContext(Dispatchers.IO) {
         setTweakProperty("gov_$mode", governor)
+        val active = getActiveProfile()
+        if (active == mode) {
+            execRoot("for p in /sys/devices/system/cpu/cpufreq/policy*; do [ -d ${'$'}p ] && echo $governor > ${'$'}p/scaling_governor 2>/dev/null; done")
+        }
+        true
     }
 
     suspend fun getModeIo(mode: String, defaultIo: String = "bfq"): String = withContext(Dispatchers.IO) {
@@ -82,6 +125,11 @@ object AllukaEngine {
 
     suspend fun setModeIo(mode: String, io: String): Boolean = withContext(Dispatchers.IO) {
         setTweakProperty("io_$mode", io)
+        val active = getActiveProfile()
+        if (active == mode) {
+            execRoot("for q in /sys/block/mmcblk*/queue /sys/block/sd*/queue /sys/block/dm-*/queue; do [ -d ${'$'}q ] && echo $io > ${'$'}q/scheduler 2>/dev/null; done")
+        }
+        true
     }
 
     // MediaTek GED Boost Control (Alluka Feature)
@@ -91,16 +139,22 @@ object AllukaEngine {
         val b3 = if (cpuEnable) "1" else "0"
         val b4 = if (gpuBoost) "1" else "0"
         val cmd = """
+            chmod 0666 /sys/module/ged/parameters/* 2>/dev/null
+            chmod 0666 /sys/kernel/ged/hal/* 2>/dev/null
             echo $b1 > /sys/module/ged/parameters/ged_boost_enable 2>/dev/null
             echo $b2 > /sys/module/ged/parameters/boost_gpu_enable 2>/dev/null
             echo $b3 > /sys/module/ged/parameters/enable_cpu_boost 2>/dev/null
             echo $b4 > /sys/module/ged/parameters/enable_gpu_boost 2>/dev/null
+            echo $b1 > /sys/module/ged/parameters/gx_game_mode 2>/dev/null
+            echo $b1 > /sys/module/ged/parameters/gx_force_cpu_boost 2>/dev/null
+            echo 0 > /sys/module/ged/parameters/gpu_idle 2>/dev/null
         """.trimIndent()
         execRoot(cmd)
         setTweakProperty("ged_boost_enable", b1)
         setTweakProperty("boost_gpu_enable", b2)
         setTweakProperty("enable_cpu_boost", b3)
         setTweakProperty("enable_gpu_boost", b4)
+        true
     }
 
     // Render Engine (AZenith Feature)
@@ -166,7 +220,7 @@ object AllukaEngine {
 
     suspend fun setAppEnabled(packageName: String, enabled: Boolean): Boolean = withContext(Dispatchers.IO) {
         val cmd = if (enabled) {
-            "mkdir -p $CONFIG_PATH && touch $GAMELIST_FILE && grep -q '^$packageName$' $GAMELIST_FILE || echo '$packageName' >> $GAMELIST_FILE"
+            "mkdir -p $CONFIG_PATH && touch $GAMELIST_FILE && (grep -q '^$packageName$' $GAMELIST_FILE || echo '$packageName' >> $GAMELIST_FILE)"
         } else {
             "mkdir -p $CONFIG_PATH && touch $GAMELIST_FILE && sed -i '/^$packageName$/d' $GAMELIST_FILE"
         }
@@ -215,10 +269,9 @@ object AllukaEngine {
     fun execRoot(command: String): String {
         return try {
             val result = Shell.cmd(command).exec()
-            if (result.isSuccess && result.out.isNotEmpty()) {
+            if (result.isSuccess) {
                 result.out.joinToString("\n")
             } else {
-                // Fallback to Runtime.exec
                 execRootFallback(command)
             }
         } catch (_: Exception) {

@@ -2,8 +2,11 @@ package id.alluka.manager
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,14 +32,27 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             AllukaTheme {
-                val pagerState = rememberPagerState(initialPage = 0) { 4 }
+                val pagerRoutes = listOf("home", "applist", "tweaks", "settings")
+                val pagerState = rememberPagerState(initialPage = 0) { pagerRoutes.size }
                 val scope = rememberCoroutineScope()
 
-                val currentRoute = when (pagerState.currentPage) {
-                    0 -> "home"
-                    1 -> "applist"
-                    2 -> "tweaks"
-                    else -> "settings"
+                // Android Emphasized Decelerate Animation Curve (AZenith Spec)
+                val easeCurve = CubicBezierEasing(0.2f, 0f, 0f, 1f)
+
+                val activeRoute = if (!pagerState.isScrollInProgress) {
+                    pagerRoutes.getOrElse(pagerState.settledPage) { "home" }
+                } else {
+                    pagerRoutes.getOrElse(pagerState.targetPage) { "home" }
+                }
+
+                // Smooth back navigation to home page
+                BackHandler(enabled = pagerState.currentPage != 0) {
+                    scope.launch {
+                        pagerState.animateScrollToPage(
+                            0,
+                            animationSpec = tween(durationMillis = 380, easing = easeCurve)
+                        )
+                    }
                 }
 
                 Box(
@@ -47,20 +63,22 @@ class MainActivity : ComponentActivity() {
                     HorizontalPager(
                         state = pagerState,
                         modifier = Modifier.fillMaxSize(),
-                        beyondViewportPageCount = 1
+                        beyondViewportPageCount = 3 // Prefetch all 4 pages to eliminate all stutters
                     ) { page ->
                         when (page) {
                             0 -> HomeScreen(
-                                selectedNavRoute = currentRoute,
+                                selectedNavRoute = activeRoute,
                                 onRouteSelected = { route ->
-                                    val target = when (route) {
-                                        "home" -> 0
-                                        "applist" -> 1
-                                        "tweaks" -> 2
-                                        "settings" -> 3
-                                        else -> 0
+                                    val target = pagerRoutes.indexOf(route).coerceAtLeast(0)
+                                    scope.launch {
+                                        pagerState.animateScrollToPage(
+                                            target,
+                                            animationSpec = tween(
+                                                durationMillis = if (kotlin.math.abs(target - pagerState.currentPage) > 1) 320 else 460,
+                                                easing = easeCurve
+                                            )
+                                        )
                                     }
-                                    scope.launch { pagerState.animateScrollToPage(target) }
                                 }
                             )
                             1 -> ApplistScreen()
@@ -70,17 +88,17 @@ class MainActivity : ComponentActivity() {
                     }
 
                     AllukaFloatingNavBar(
-                        selectedRoute = currentRoute,
+                        selectedRoute = activeRoute,
                         onRouteSelected = { route ->
-                            val target = when (route) {
-                                "home" -> 0
-                                "applist" -> 1
-                                "tweaks" -> 2
-                                "settings" -> 3
-                                else -> 0
-                            }
+                            val target = pagerRoutes.indexOf(route).coerceAtLeast(0)
                             scope.launch {
-                                pagerState.animateScrollToPage(target)
+                                pagerState.animateScrollToPage(
+                                    target,
+                                    animationSpec = tween(
+                                        durationMillis = if (kotlin.math.abs(target - pagerState.currentPage) > 1) 320 else 460,
+                                        easing = easeCurve
+                                    )
+                                )
                             }
                         },
                         modifier = Modifier

@@ -22,6 +22,7 @@ log() { echo "$(date '+%F %T' 2>/dev/null) $*" >> "$LOG"; }
 write_node() {
   local path="$1" value="$2" before after
   [ -e "$path" ] || return 1
+  chmod 0666 "$path" 2>/dev/null
   [ -w "$path" ] || { log "SKIP readonly $path"; return 1; }
   before="$(cat "$path" 2>/dev/null)"
   if printf '%s' "$value" > "$path" 2>/dev/null; then
@@ -164,10 +165,15 @@ write_node /proc/sys/kernel/timer_migration 1
 # MediaTek GED boost control (Alluka Feature)
 CUSTOM_GED="$(get_tweak "ged_boost_enable" "")"
 if [ "$PROFILE" = "peforma" ] || [ "$CUSTOM_GED" = "1" ]; then
+  chmod 0666 /sys/module/ged/parameters/* 2>/dev/null
+  chmod 0666 /sys/kernel/ged/hal/* 2>/dev/null
   write_node /sys/module/ged/parameters/ged_boost_enable 1
   write_node /sys/module/ged/parameters/boost_gpu_enable 1
   write_node /sys/module/ged/parameters/enable_cpu_boost 1
   write_node /sys/module/ged/parameters/enable_gpu_boost 1
+  write_node /sys/module/ged/parameters/gx_game_mode 1
+  write_node /sys/module/ged/parameters/gx_force_cpu_boost 1
+  write_node /sys/module/ged/parameters/gpu_idle 0
 else
   restore_ged
 fi
