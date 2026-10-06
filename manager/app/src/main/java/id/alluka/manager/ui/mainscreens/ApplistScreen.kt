@@ -1,6 +1,7 @@
 package id.alluka.manager.ui.mainscreens
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,6 +27,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import id.alluka.manager.R
 
 class AllukaAppItem(
@@ -72,7 +75,9 @@ fun ApplistScreen(
     var isSearchActive by remember { mutableStateOf(false) }
     var showSystemApps by remember { mutableStateOf(false) }
     var menuExpanded by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
     var appToConfig by remember { mutableStateOf<AllukaAppItem?>(null) }
+    val coroutineScope = rememberCoroutineScope()
 
     // Exact AZenith Apps Data (11 default enabled games from azenithApplist.json + user apps + system apps)
     val appsList = remember {
@@ -192,7 +197,14 @@ fun ApplistScreen(
                                 DropdownMenuItem(
                                     text = { Text("Refresh") },
                                     leadingIcon = { Icon(Icons.Rounded.Refresh, contentDescription = null) },
-                                    onClick = { menuExpanded = false }
+                                    onClick = {
+                                        menuExpanded = false
+                                        coroutineScope.launch {
+                                            isRefreshing = true
+                                            delay(800)
+                                            isRefreshing = false
+                                        }
+                                    }
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Show System Apps") },
@@ -215,7 +227,25 @@ fun ApplistScreen(
             containerColor = Color.Transparent,
             modifier = modifier
         ) { innerPadding ->
-            if (filteredApps.isEmpty()) {
+            if (isRefreshing) {
+                // AZenith Skeleton Shimmer Loading (SkeletonContent & SkeletonListRow)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding)
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    repeat(6) { idx ->
+                        val shape = when (idx) {
+                            0 -> topShape
+                            5 -> bottomShape
+                            else -> middleShape
+                        }
+                        SkeletonAppItem(shape = shape)
+                    }
+                }
+            } else if (filteredApps.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -309,6 +339,65 @@ fun ApplistScreen(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun SkeletonAppItem(shape: RoundedCornerShape) {
+    val transition = rememberInfiniteTransition(label = "SkeletonTransition")
+    val alpha by transition.animateFloat(
+        initialValue = 0.30f,
+        targetValue = 0.58f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 900, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "SkeletonAlpha"
+    )
+
+    Surface(
+        modifier = Modifier.fillMaxWidth().clip(shape),
+        shape = shape,
+        color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.White.copy(alpha = alpha * 0.15f))
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.6f)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color.White.copy(alpha = alpha * 0.15f))
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.38f)
+                        .height(11.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.White.copy(alpha = alpha * 0.15f))
+                )
+                Box(
+                    modifier = Modifier
+                        .width(52.dp)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White.copy(alpha = alpha * 0.15f))
+                )
             }
         }
     }
