@@ -227,42 +227,25 @@ fun ApplistScreen(
             containerColor = Color.Transparent,
             modifier = modifier
         ) { innerPadding ->
-            if (isRefreshing) {
-                // AZenith Skeleton Shimmer Loading (SkeletonContent & SkeletonListRow)
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    repeat(6) { idx ->
-                        val shape = when (idx) {
-                            0 -> topShape
-                            5 -> bottomShape
-                            else -> middleShape
-                        }
-                        SkeletonAppItem(shape = shape)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                if (filteredApps.isEmpty() && !isRefreshing) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No apps match this search",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
-                }
-            } else if (filteredApps.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "No apps match this search",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 110.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
@@ -336,6 +319,36 @@ fun ApplistScreen(
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+
+                // Floating Android Material 3 Pull-To-Refresh Indicator (AZenith PullToRefreshDefaults.LoadingIndicator)
+                AnimatedVisibility(
+                    visible = isRefreshing,
+                    enter = fadeIn() + slideInVertically { -it / 2 },
+                    exit = fadeOut() + slideOutVertically { -it / 2 } + scaleOut(targetScale = 0.6f),
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 8.dp)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        tonalElevation = 6.dp,
+                        shadowElevation = 6.dp,
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 3.dp,
+                                color = MaterialTheme.colorScheme.primary,
+                                trackColor = Color.Transparent
+                            )
                         }
                     }
                 }
