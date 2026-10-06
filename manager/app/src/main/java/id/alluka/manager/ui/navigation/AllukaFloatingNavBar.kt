@@ -41,7 +41,7 @@ fun AllukaFloatingNavBar(
         listOf(
             AllukaNavItem("home", "Home", Icons.Rounded.Home),
             AllukaNavItem("applist", "App List", Icons.Rounded.Widgets),
-            AllukaNavItem("tweaks", "Tweaks", Icons.Rounded.Tune),
+            AllukaNavItem("tweaks", "Tweaks", Icons.Rounded.SettingsInputComponent),
             AllukaNavItem("settings", "Settings", Icons.Rounded.Settings)
         )
     }
