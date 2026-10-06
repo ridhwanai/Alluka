@@ -167,12 +167,6 @@ fun HomeScreen() {
                                     Text(text = "Status Modul", fontSize = 10.sp, lineHeight = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(text = if (isModuleActive) "Aktif" else "Tidak Aktif", fontSize = 13.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
                                 }
-                                Icon(
-                                    imageVector = Icons.Rounded.Check,
-                                    contentDescription = null,
-                                    tint = Color(0xFF10B981),
-                                    modifier = Modifier.size(16.dp)
-                                )
                             }
                         }
 
@@ -207,12 +201,6 @@ fun HomeScreen() {
                                     Text(text = "Akses Root", fontSize = 10.sp, lineHeight = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(text = if (hasRoot) "Diperoleh" else "Ditolak", fontSize = 13.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFF10B981))
                                 }
-                                Icon(
-                                    imageVector = Icons.Rounded.Check,
-                                    contentDescription = null,
-                                    tint = Color(0xFF10B981),
-                                    modifier = Modifier.size(16.dp)
-                                )
                             }
                         }
                     }
