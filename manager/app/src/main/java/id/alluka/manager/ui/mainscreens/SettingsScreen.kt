@@ -57,6 +57,7 @@ fun SettingsScreen(
     var showChangelogDialog by remember { mutableStateOf(false) }
     var showSaveLogDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+    var showCreditsDialog by remember { mutableStateOf(false) }
 
     // Digital clock state for phone mockup
     var clockHour by remember { mutableStateOf(SimpleDateFormat("HH", Locale.getDefault()).format(Date())) }
@@ -354,6 +355,15 @@ fun SettingsScreen(
                             desc = if (isEn) "Version 1.0 (Build 100)" else "Versi 1.0 (Build 100)",
                             onClick = { showAboutDialog = true }
                         )
+
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.04f))
+
+                        SettingsActionRow(
+                            icon = Icons.Rounded.VerifiedUser,
+                            title = if (isEn) "Credits & Open Source Licenses" else "Kredit & Lisensi Open Source",
+                            desc = if (isEn) "Attribution to AZenith, upstream projects & Apache 2.0" else "Atribusi ke AZenith, proyek upstream & Apache 2.0",
+                            onClick = { showCreditsDialog = true }
+                        )
                     }
                 }
             }
@@ -522,6 +532,111 @@ fun SettingsScreen(
                 },
                 confirmButton = {
                     TextButton(onClick = { showAboutDialog = false }) {
+                        Text(if (isEn) "Close" else "Tutup")
+                    }
+                }
+            )
+        }
+
+        // Open Source Credits & Licenses Dialog
+        if (showCreditsDialog) {
+            AlertDialog(
+                onDismissRequest = { showCreditsDialog = false },
+                title = {
+                    Text(
+                        if (isEn) "Open Source Credits & Lineage" else "Kredit Open Source & Lisensi",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        item {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text(
+                                        text = "🌟 AZenith (Apache License 2.0)",
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontSize = 13.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = if (isEn)
+                                            "Authors: Liliya2727 (@Zexshia, @rianixia, @kanaochar)\n" +
+                                            "Alluka Manager adopts and adapts AZenith's signature Floating Pill Navigation, Expressive Material 3 Card System, and app management UX paradigms while implementing its own independent Alluka Kernel Engine."
+                                        else
+                                            "Pengembang: Liliya2727 (@Zexshia, @rianixia, @kanaochar)\n" +
+                                            "Alluka Manager mengadaptasi desain Floating Pill Navigation, sistem kartu Expressive Material 3, dan UX manajemen profil aplikasi dari AZenith, dengan engine kernel Alluka mandiri.",
+                                        fontSize = 11.5.sp,
+                                        lineHeight = 15.sp,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "GitHub: https://github.com/Liliya2727/AZenith",
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.clickable { uriHandler.openUri("https://github.com/Liliya2727/AZenith") }
+                                    )
+                                }
+                            }
+                        }
+
+                        item {
+                            Text(
+                                text = "🛠️ Upstream & Ecosystem Projects",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        item {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text(
+                                    text = "• libsu by @topjohnwu (Apache 2.0)\n  Root shell communication engine.",
+                                    fontSize = 11.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "• KernelSU by @tiann & Magisk by @topjohnwu\n  Root module infrastructure & mounting architecture.",
+                                    fontSize = 11.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "• Uperf & Scene Community\n  Inspiration for dynamic governor balancing.",
+                                    fontSize = 11.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "• Alluka & Nanika (Hunter x Hunter)\n  Character visual motif & artistic inspiration.",
+                                    fontSize = 11.5.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        item {
+                            HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                            Text(
+                                text = "Alluka is licensed under Apache License, Version 2.0. In compliance with Section 4, third-party notices and original copyright claims are maintained in full.",
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.outline,
+                                lineHeight = 13.sp
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showCreditsDialog = false }) {
                         Text(if (isEn) "Close" else "Tutup")
                     }
                 }

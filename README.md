@@ -97,11 +97,53 @@ Output is generated at `dist/Alluka-v1.0.zip`.
 
 ---
 
-## 🤝 Credits & Acknowledgements
+## 🤝 Credits & Open Source Lineage
 
-* **Kernel Architecture:** For the comfortable, butter-smooth kernel tuning foundation and clean shell architecture.
-* **AZenith:** Visual design inspiration for the Expressive Material 3 layout and Floating Navbar.
-* **Hunter x Hunter:** Visual character motif for Alluka and Nanika.
+Alluka is an open-source project that embraces the collaborative spirit of the Android optimization and modding community. We gratefully acknowledge and credit the following projects and authors:
+
+### 🌟 AZenith Attribution
+* **Project:** [AZenith](https://github.com/Liliya2727/AZenith)
+* **Authors & Core Developers:** [Liliya2727](https://github.com/Liliya2727) (@Zexshia, @rianixia, @kanaochar)
+* **License:** [Apache License 2.0](https://github.com/Liliya2727/AZenith/blob/main/LICENSE)
+* **Implementation & Adaptation in Alluka:**
+  * **UI/UX Design Language:** Alluka Manager adopts and refines the signature **Floating Pill Navigation Island**, **Expressive Material 3 Card System**, and **Modal Bottom Sheet Selectors** pioneered by AZenith.
+  * **App-Specific Profiling Concepts:** The per-package profile selector and game-detection UX paradigm draws inspiration from AZenith's application management design.
+  * **Independent Kernel Logic:** While adopting AZenith's UI architecture, Alluka implements its own distinct **Alluka Kernel Engine**—tailored for cluster-aware schedutil rate-limit tuning (optimized for Helio G85 & modern multi-cluster SoCs), SchedTune zero-lag foreground touch boost, MediaTek GED safety snapshotting, and dynamic character artwork switching (Sleep, Daily, Peforma) with zero background daemon overhead.
+
+### 🛠️ Upstream & Ecosystem Credits
+* **[libsu](https://github.com/topjohnwu/libsu)** by [John Wu (@topjohnwu)](https://github.com/topjohnwu) (Apache 2.0) — Powers robust, asynchronous root shell communication in Alluka Manager.
+* **[KernelSU](https://github.com/tiann/KernelSU)** by [Jason Donenfeld (@tiann)](https://github.com/tiann) & Contributors (GPL-2.0 / LGPL-2.1) — Kernel-based root solution inspiring modern modular architecture.
+* **[APatch](https://github.com/bmax121/APatch)** & **[Magisk](https://github.com/topjohnwu/Magisk)** — Module installation standards and environment.
+* **[Uperf](https://github.com/yc9559/uperf)** & **[Scene](http://vtools.omarea.com/)** — Influential performance management concepts in the Android modding scene.
+* **Yoshihiro Togashi (Hunter × Hunter)** — Artistic inspiration for the Alluka and Nanika character motif and dynamic artwork.
+
+---
+
+## 📄 License & Compliance
+
+Alluka is licensed under the **Apache License, Version 2.0**.
+
+In accordance with Section 4 of the Apache License 2.0:
+* A complete copy of the license is provided in the [`LICENSE`](LICENSE) file.
+* Attribution notices for upstream and derivative works are documented in [`NOTICE`](NOTICE) and in this document.
+* Modifications and adaptations from third-party open-source projects are explicitly noted.
+
+```
+Copyright 2026 Alluka Contributors
+Copyright 2024-2026 Liliya2727 and AZenith Contributors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+```
 
 ---
 
