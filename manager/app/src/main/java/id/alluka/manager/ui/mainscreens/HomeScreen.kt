@@ -219,15 +219,8 @@ fun HomeScreen() {
                     }
                 }
 
-                // 3. Informasi Perangkat (Device Information, Jarak Rapat)
+                // 3. Informasi Perangkat (Header Berada di Dalam Kotak Card)
                 item {
-                    Text(
-                        text = "Informasi Perangkat",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -240,11 +233,54 @@ fun HomeScreen() {
                             modifier = Modifier.padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            // Header di Dalam Kotak Card
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PhoneAndroid,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = "Informasi Perangkat",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
+                                    )
+                                }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.CheckCircle,
+                                        contentDescription = null,
+                                        tint = Color(0xFF10B981),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        text = "Terverifikasi",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF10B981)
+                                    )
+                                }
+                            }
+
+                            Divider(color = Color.White.copy(alpha = 0.05f))
+
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 DeviceInfoItem(modifier = Modifier.weight(1f), icon = Icons.Rounded.Smartphone, label = "Nama Perangkat", value = "Redmi Note 9")
                                 DeviceInfoItem(modifier = Modifier.weight(1f), icon = Icons.Rounded.Memory, label = "Chipset", value = "Helio G85")
                             }
-                            Divider(color = Color.White.copy(alpha = 0.05f))
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 DeviceInfoItem(modifier = Modifier.weight(1f), icon = Icons.Rounded.Code, label = "Versi Kernel", value = "Linux 4.14.336")
                                 DeviceInfoItem(modifier = Modifier.weight(1f), icon = Icons.Rounded.AutoAwesome, label = "Versi Alluka", value = "v1.0 Stable", isHighlight = true)
