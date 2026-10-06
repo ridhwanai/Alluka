@@ -165,22 +165,6 @@ fun ApplistScreen(
                                 fontSize = 20.sp
                             )
                         },
-                        navigationIcon = {
-                            Box(
-                                modifier = Modifier
-                                    .padding(start = 14.dp, end = 10.dp)
-                                    .size(38.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                            ) {
-                                Image(
-                                    painter = painterResource(R.drawable.avatar),
-                                    contentDescription = "Avatar",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        },
                         actions = {
                             IconButton(onClick = { isSearchActive = true }) {
                                 Icon(Icons.Rounded.Search, contentDescription = "Search")
@@ -308,6 +292,14 @@ fun ApplistScreen(
                                         }
                                     }
                                 }
+
+                                Switch(
+                                    checked = app.isEnabled,
+                                    onCheckedChange = { isChecked ->
+                                        app.isEnabled = isChecked
+                                    },
+                                    modifier = Modifier.padding(start = 8.dp)
+                                )
                             }
                         }
                     }
