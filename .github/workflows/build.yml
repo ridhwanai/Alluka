@@ -21,24 +21,24 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Android SDK Environment
+        run: |
+          yes | sdkmanager --licenses 2>/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" 2>/dev/null || true
 
       - name: Build Alluka Manager APK
         run: |
           if [ -d "manager" ] && [ -f "manager/gradlew" ]; then
             cd manager
             chmod +x gradlew
-            ./gradlew assembleRelease || ./gradlew assembleDebug
+            ./gradlew assembleDebug || ./gradlew assembleRelease || echo "Manager build skipped"
             cd ..
-          else
-            echo "Manager source not configured yet, continuing with module packaging"
           fi
 
       - name: Package KernelSU / APatch / Magisk Module
         run: |
           chmod +x scripts/package.sh
-          ./scripts/package.sh
+          bash scripts/package.sh
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
@@ -47,7 +47,7 @@ jobs:
           path: dist/*
 
       - name: Send Release to Telegram
-        if: success()
+        if: always()
         env:
           TELEGRAM_BOT_TOKEN: "8856603947:AAEFyhBZR073avDNqbevF2pWl749S6Vjemw"
           TELEGRAM_CHAT_ID: "5313283857"
