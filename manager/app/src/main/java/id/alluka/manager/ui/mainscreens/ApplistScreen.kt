@@ -39,18 +39,29 @@ class AllukaAppItem(
     isEnabled: Boolean,
     val isRecommended: Boolean,
     val version: String = "v1.0.0",
-    var perfLiteMode: String = "default",
-    var bypassCharging: String = "default",
-    var gamePreload: String = "default",
-    var appPriority: String = "default",
-    var dndOnGaming: String = "default",
-    var refreshRate: String = "default",
-    var renderEngine: String = "default",
-    var downscalePercent: Int = 0,
-    var targetFps: Int = 0
+    perfLiteMode: String = "default",
+    dndOnGaming: String = "default",
+    renderEngine: String = "default"
 ) {
     var isEnabled by mutableStateOf(isEnabled)
+    var perfLiteMode by mutableStateOf(perfLiteMode)
+    var dndOnGaming by mutableStateOf(dndOnGaming)
+    var renderEngine by mutableStateOf(renderEngine)
 }
+
+data class OptionSheetItem(
+    val value: String,
+    val label: String,
+    val description: String
+)
+
+data class ActiveSheetConfig(
+    val title: String,
+    val subtitle: String,
+    val options: List<OptionSheetItem>,
+    val currentValue: String,
+    val onSelect: (String) -> Unit
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -326,6 +337,7 @@ fun AllukaAppSettingsScreen(
     onBack: () -> Unit
 ) {
     var masterOn by remember { mutableStateOf(app.isEnabled) }
+    var activeSheet by remember { mutableStateOf<ActiveSheetConfig?>(null) }
     val colorScheme = MaterialTheme.colorScheme
 
     Scaffold(
@@ -451,8 +463,9 @@ fun AllukaAppSettingsScreen(
                 }
             }
 
-            // Expanded Settings
+            // Expanded Settings (Filtered - Only requested remaining features with BottomSheet Pickers)
             if (masterOn) {
+                // Section: PERFORMANCE
                 item {
                     Text(
                         text = "PERFORMANCE",
@@ -462,9 +475,32 @@ fun AllukaAppSettingsScreen(
                     )
                 }
                 item {
-                    SettingOptionCard(icon = Icons.Rounded.Speed, title = "Performance Lite", desc = "Reduce CPU frequency to lower heat", value = "Default")
+                    SettingOptionCard(
+                        icon = Icons.Rounded.Speed,
+                        title = "Performance Lite",
+                        desc = "Reduce CPU frequency to lower heat",
+                        value = when (app.perfLiteMode) {
+                            "true" -> "On"
+                            "false" -> "Off"
+                            else -> "Default"
+                        },
+                        onClick = {
+                            activeSheet = ActiveSheetConfig(
+                                title = "Performance Lite",
+                                subtitle = "Kurangi frekuensi CPU untuk meredam suhu & panas baterai",
+                                options = listOf(
+                                    OptionSheetItem("default", "Default", "Mengikuti setelan profil kernel global"),
+                                    OptionSheetItem("true", "On", "Aktifkan optimasi ini khusus untuk aplikasi ini"),
+                                    OptionSheetItem("false", "Off", "Nonaktifkan fitur ini untuk aplikasi ini")
+                                ),
+                                currentValue = app.perfLiteMode,
+                                onSelect = { app.perfLiteMode = it }
+                            )
+                        }
+                    )
                 }
 
+                // Section: ADDITIONAL SETTINGS
                 item {
                     Text(
                         text = "ADDITIONAL SETTINGS",
@@ -474,22 +510,38 @@ fun AllukaAppSettingsScreen(
                     )
                 }
                 item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(26.dp))
-                            .background(colorScheme.surfaceColorAtElevation(1.dp))
+                    Surface(
+                        shape = RoundedCornerShape(26.dp),
+                        color = colorScheme.surfaceColorAtElevation(1.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        SettingOptionRow(icon = Icons.Rounded.Cable, title = "Bypass Charging", desc = "Configure Alluka bypass charging feature", value = "Default")
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
-                        SettingOptionRow(icon = Icons.Rounded.RocketLaunch, title = "Game Preloading", desc = "Preload runtime libraries when a game starts", value = "Default")
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
-                        SettingOptionRow(icon = Icons.Rounded.SwapVerticalCircle, title = "App Priority", desc = "Boost I/O scheduling priority", value = "Default")
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
-                        SettingOptionRow(icon = Icons.Rounded.DoNotDisturbOn, title = "Do Not Disturb Mode", desc = "Block notifications while gaming", value = "Default")
+                        SettingOptionRow(
+                            icon = Icons.Rounded.DoNotDisturbOn,
+                            title = "Do Not Disturb Mode",
+                            desc = "Block notifications while gaming",
+                            value = when (app.dndOnGaming) {
+                                "true" -> "On"
+                                "false" -> "Off"
+                                else -> "Default"
+                            },
+                            onClick = {
+                                activeSheet = ActiveSheetConfig(
+                                    title = "Do Not Disturb Mode",
+                                    subtitle = "Blokir notifikasi & pop-up saat aplikasi/game sedang aktif",
+                                    options = listOf(
+                                        OptionSheetItem("default", "Default", "Mengikuti setelan profil kernel global"),
+                                        OptionSheetItem("true", "On", "Aktifkan optimasi ini khusus untuk aplikasi ini"),
+                                        OptionSheetItem("false", "Off", "Nonaktifkan fitur ini untuk aplikasi ini")
+                                    ),
+                                    currentValue = app.dndOnGaming,
+                                    onSelect = { app.dndOnGaming = it }
+                                )
+                            }
+                        )
                     }
                 }
 
+                // Section: DISPLAY & RENDER SETTINGS
                 item {
                     Text(
                         text = "DISPLAY & RENDER SETTINGS",
@@ -499,15 +551,40 @@ fun AllukaAppSettingsScreen(
                     )
                 }
                 item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(26.dp))
-                            .background(colorScheme.surfaceColorAtElevation(1.dp))
+                    Surface(
+                        shape = RoundedCornerShape(26.dp),
+                        color = colorScheme.surfaceColorAtElevation(1.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        SettingOptionRow(icon = Icons.Rounded.WebStories, title = "Refresh Rate", desc = "Set preferred screen refresh rate", value = "Default")
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.05f))
-                        SettingOptionRow(icon = Icons.Rounded.Layers, title = "Current Render Engine", desc = "Set preferred render engine", value = "Default")
+                        SettingOptionRow(
+                            icon = Icons.Rounded.Layers,
+                            title = "Current Render Engine",
+                            desc = "Set preferred render engine",
+                            value = when (app.renderEngine) {
+                                "skiavk" -> "SkiaVK"
+                                "skiavkthreaded" -> "SkiaVK (Threaded)"
+                                "skiagl" -> "SkiaGL"
+                                "opengl" -> "OpenGL ES"
+                                "vulkan" -> "Vulkan"
+                                else -> "Default"
+                            },
+                            onClick = {
+                                activeSheet = ActiveSheetConfig(
+                                    title = "Current Render Engine",
+                                    subtitle = "Pilih backend rendering grafis khusus aplikasi ini",
+                                    options = listOf(
+                                        OptionSheetItem("default", "Default", "Pipeline grafis bawaan sistem Android"),
+                                        OptionSheetItem("skiavk", "SkiaVK", "Backend render Skia Vulkan berperforma tinggi"),
+                                        OptionSheetItem("skiavkthreaded", "SkiaVK (Threaded)", "Pipeline Skia Vulkan multithreaded"),
+                                        OptionSheetItem("skiagl", "SkiaGL", "Backend render Skia OpenGL ES"),
+                                        OptionSheetItem("opengl", "OpenGL ES", "Pipeline grafis OpenGL ES standar"),
+                                        OptionSheetItem("vulkan", "Vulkan", "Driver Vulkan langsung tingkat rendah")
+                                    ),
+                                    currentValue = app.renderEngine,
+                                    onSelect = { app.renderEngine = it }
+                                )
+                            }
+                        )
                     }
                 }
             }
@@ -517,23 +594,118 @@ fun AllukaAppSettingsScreen(
             }
         }
     }
+
+    // Modal Bottom Sheet Option Picker (AZenith Style)
+    if (activeSheet != null) {
+        val sheet = activeSheet!!
+        ModalBottomSheet(
+            onDismissRequest = { activeSheet = null },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = colorScheme.surfaceColorAtElevation(3.dp),
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            dragHandle = { BottomSheetDefaults.DragHandle() }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = sheet.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = colorScheme.onSurface
+                )
+                if (sheet.subtitle.isNotBlank()) {
+                    Text(
+                        text = sheet.subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.outline
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                sheet.options.forEach { opt ->
+                    val isSelected = opt.value == sheet.currentValue
+                    Surface(
+                        onClick = {
+                            sheet.onSelect(opt.value)
+                            activeSheet = null
+                        },
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isSelected) colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                else Color.Transparent,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            RadioButton(
+                                selected = isSelected,
+                                onClick = {
+                                    sheet.onSelect(opt.value)
+                                    activeSheet = null
+                                },
+                                colors = RadioButtonDefaults.colors(
+                                    selectedColor = colorScheme.primary
+                                )
+                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = opt.label,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                                    color = if (isSelected) colorScheme.primary else colorScheme.onSurface
+                                )
+                                Text(
+                                    text = opt.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.outline
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
-fun SettingOptionCard(icon: ImageVector, title: String, desc: String, value: String) {
+fun SettingOptionCard(
+    icon: ImageVector,
+    title: String,
+    desc: String,
+    value: String,
+    onClick: () -> Unit = {}
+) {
     Surface(
         shape = RoundedCornerShape(26.dp),
         color = MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        SettingOptionRow(icon = icon, title = title, desc = desc, value = value)
+        SettingOptionRow(icon = icon, title = title, desc = desc, value = value, onClick = onClick)
     }
 }
 
 @Composable
-fun SettingOptionRow(icon: ImageVector, title: String, desc: String, value: String) {
+fun SettingOptionRow(
+    icon: ImageVector,
+    title: String,
+    desc: String,
+    value: String,
+    onClick: () -> Unit = {}
+) {
     Row(
-        modifier = Modifier.padding(14.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -554,13 +726,24 @@ fun SettingOptionRow(icon: ImageVector, title: String, desc: String, value: Stri
             shape = RoundedCornerShape(12.dp),
             color = Color.White.copy(alpha = 0.08f)
         ) {
-            Text(
-                text = value,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-            )
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = value,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Icon(
+                    imageVector = Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
     }
 }
